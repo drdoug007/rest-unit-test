@@ -26,6 +26,10 @@ public class GraalJsService implements AutoCloseable {
         }
     }
 
+    public Context getContext() {
+        return context;
+    }
+
     public void putMember(String key, Object value) {
         synchronized (context) {
             context.getBindings("js").putMember(key, value);

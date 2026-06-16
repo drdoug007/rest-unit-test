@@ -72,12 +72,14 @@ public class RestTestService {
 
             // Load markdown.js helper into GraalJS context
             try {
-                ClassPathResource markdownResource = new ClassPathResource("httptestfiles/markdown.js");
-                if (markdownResource.exists()) {
-                    String markdownJs = markdownResource.getContentAsString(StandardCharsets.UTF_8);
-                    // Strip exports for non-module GraalJS eval
-                    markdownJs = markdownJs.replaceAll("export ", "");
-                    graalJsService.executeScript(markdownJs);
+                if (graalJsService.getContext().getBindings("js").getMember("Markdown") == null) {
+                    ClassPathResource markdownResource = new ClassPathResource("httptestfiles/markdown.js");
+                    if (markdownResource.exists()) {
+                        String markdownJs = markdownResource.getContentAsString(StandardCharsets.UTF_8);
+                        // Strip exports for non-module GraalJS eval
+                        markdownJs = markdownJs.replaceAll("export ", "");
+                        graalJsService.executeScript(markdownJs);
+                    }
                 }
             } catch (IOException e) {
                 log.warn("Could not load markdown.js: {}", e.getMessage());
