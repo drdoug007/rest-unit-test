@@ -15,20 +15,27 @@ GET http://127.0.0.1:8080/api/cardealer
     client.test("Response includes more than 1 car dealer", function () {
         const carDealers = jsonPath(response.body, "$");
         client.assert(carDealers.length > 0, "No car dealers");
-        client.log("Number of Car Dealers :" + carDealers.length)
     });
 
     client.test("SQL query returned results", function () {
         const resultSet = client.global.get("ResultSet");
         client.assert(resultSet.length > 0, "SQL returned no car dealers");
-        client.log("Number of Car Dealers in DB: " + resultSet.length);
+    });
+
+    client.test("Response Data Matches Database", function () {
+        const resultSet = client.global.get("ResultSet");
+        const carDealers = jsonPath(response.body, "$");
+        client.assert(carDealers.length === resultSet.length, "Car Dealers returned are not the same number of records in the database");
     });
 
     const columns = client.global.get("ResultSetColumns");
     const data = client.global.get("ResultSet");
+    const carDealers = jsonPath(response.body, "$");
     markdowner.heading(3, "Card Dealers");
     markdowner.description("Environment: " + environment.getName());
     markdowner.table(columns, data);
+    markdowner.heading(3, "Response Message");
+    markdowner.codeBlock("json", JSON.stringify(JSON.parse(response.body), null, 2));
 
 %}
 
