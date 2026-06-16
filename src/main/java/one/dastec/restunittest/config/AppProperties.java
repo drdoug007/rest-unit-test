@@ -20,6 +20,7 @@ public class AppProperties {
     public static class Environment {
         private String name;
         private String release;
+        private String baseUrl;
 
         public String getName() {
             return name;
@@ -35,6 +36,14 @@ public class AppProperties {
 
         public void setRelease(String release) {
             this.release = release;
+        }
+
+        public void setBaseUrl(String baseUrl) {
+            this.baseUrl = baseUrl;
+        }
+
+        public String getBaseUrl() {
+            return baseUrl;
         }
     }
 }

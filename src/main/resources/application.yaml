@@ -15,3 +15,4 @@ app:
   environment:
     name: Development
     release: 1.0.0
+    baseUrl: http://localhost:8080

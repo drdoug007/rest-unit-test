@@ -134,7 +134,6 @@ public class RestTestService {
 
         StringBuilder preScript = new StringBuilder();
         StringBuilder postScript = new StringBuilder();
-        StringBuilder sqlScript = new StringBuilder();
         StringBuilder body = new StringBuilder();
         Map<String, String> headers = new HashMap<>();
         String method = null;
@@ -152,7 +151,7 @@ public class RestTestService {
 
             if (trimmedLine.startsWith("< {%")) {
                 if (!currentScript.toString().trim().isEmpty()) {
-                    if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.PreAction("JS", currentScript.toString().trim()));
+                    if (mode.equals("PRE")) preScript.append(currentScript);
                     if (mode.equals("SQL")) test.getPreActions().add(new HttpTest.PreAction("SQL", currentScript.toString().trim()));
                 }
                 currentScript = new StringBuilder();
@@ -160,7 +159,7 @@ public class RestTestService {
                 continue;
             } else if (trimmedLine.startsWith("> {%SQL") || trimmedLine.startsWith("# < SQL")) {
                 if (!currentScript.toString().trim().isEmpty()) {
-                    if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.PreAction("JS", currentScript.toString().trim()));
+                    if (mode.equals("PRE")) preScript.append(currentScript);
                     if (mode.equals("SQL")) test.getPreActions().add(new HttpTest.PreAction("SQL", currentScript.toString().trim()));
                 }
                 currentScript = new StringBuilder();
@@ -168,7 +167,7 @@ public class RestTestService {
                 continue;
             } else if (trimmedLine.startsWith("> {%")) {
                 if (!currentScript.toString().trim().isEmpty()) {
-                    if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.PreAction("JS", currentScript.toString().trim()));
+                    if (mode.equals("PRE")) preScript.append(currentScript);
                     if (mode.equals("SQL")) test.getPreActions().add(new HttpTest.PreAction("SQL", currentScript.toString().trim()));
                 }
                 currentScript = new StringBuilder();
@@ -176,7 +175,7 @@ public class RestTestService {
                 continue;
             } else if (trimmedLine.startsWith("%}") || trimmedLine.equals("# SQL")) {
                 if (!currentScript.toString().trim().isEmpty()) {
-                    if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.PreAction("JS", currentScript.toString().trim()));
+                    if (mode.equals("PRE")) preScript.append(currentScript);
                     if (mode.equals("SQL")) test.getPreActions().add(new HttpTest.PreAction("SQL", currentScript.toString().trim()));
                     if (mode.equals("POST")) postScript.append(currentScript);
                 }
@@ -185,9 +184,7 @@ public class RestTestService {
                 continue;
             }
 
-            if (mode.equals("PRE") || mode.equals("SQL")) {
-                currentScript.append(line).append("\n");
-            } else if (mode.equals("POST")) {
+            if (mode.equals("PRE") || mode.equals("SQL") || mode.equals("POST")) {
                 currentScript.append(line).append("\n");
             } else if (mode.equals("NONE")) {
                 if (trimmedLine.isEmpty()) {
@@ -213,7 +210,6 @@ public class RestTestService {
 
         test.setPreScript(preScript.toString().trim());
         test.setPostScript(postScript.toString().trim());
-        test.setSqlScript(sqlScript.toString().trim());
         test.setMethod(method);
         test.setUrl(url);
         test.setHeaders(headers);
@@ -224,18 +220,21 @@ public class RestTestService {
 
     private void executeTest(HttpTest test, RequestJS requestJS, HttpClientJS httpClientJS, StringBuilder report) {
         try {
-            // 1. Pre-actions (JS and SQL in order)
+            // 1. Pre-script (consolidated JS)
+            if (test.getPreScript() != null && !test.getPreScript().isEmpty()) {
+                setupGraalJsContext(requestJS, httpClientJS, null);
+                try {
+                    graalJsService.executeScript("(function() {\n" + test.getPreScript() + "\n})()");
+                } catch (Exception e) {
+                    report.append("❌ **Error in pre-script:** ").append(e.getMessage()).append("\n");
+                }
+                appendResults(httpClientJS, report);
+            }
+
+            // 2. Pre-actions (SQL in order)
             for (HttpTest.PreAction action : test.getPreActions()) {
                 if ("SQL".equals(action.getType())) {
                     executeSql(action.getContent(), requestJS, httpClientJS, report);
-                } else if ("JS".equals(action.getType())) {
-                    setupGraalJsContext(requestJS, httpClientJS, null);
-                    try {
-                        graalJsService.executeScript("(function() {\n" + action.getContent() + "\n})()");
-                    } catch (Exception e) {
-                        report.append("❌ **Error in pre-script:** ").append(e.getMessage()).append("\n");
-                    }
-                    appendResults(httpClientJS, report);
                 }
             }
 

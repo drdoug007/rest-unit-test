@@ -1,10 +1,6 @@
 
 
 ### GET request to example server
-< {%
-    markdowner.heading(3, "Before: TABLE: CARDEALERS");
-%}
-
 # < SQL
     # The default dataSource is the Spring JDBC Primary dataSource
     ### DataSource = default
@@ -12,12 +8,13 @@
 # SQL
 
 < {%
+    markdowner.heading(3, "Before: TABLE: CARDEALERS");
     const columns = client.global.get("ResultSetColumns");
     const data = client.global.get("ResultSet");
     markdowner.table(columns, data);
 %}
 
-GET http://127.0.0.1:8080/api/cardealer
+GET {{baseUrl}}/api/cardealer
 Accept:  application/json
 
 
