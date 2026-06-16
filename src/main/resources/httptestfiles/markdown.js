@@ -4,8 +4,8 @@ export class Markdown {
         // 1. Create the Header Row: | id | name | email |
         const header = `| ${columns.join(' | ')} |`;
 
-        // 2. Create the Separator Row: | --- | --- | --- |
-        const separator = `| ${columns.map(() => '---').join(' | ')} |`;
+        // 2. Create the Separator Row: | :--- | :--- | :--- |
+        const separator = `| ${columns.map(() => ':---').join(' | ')} |`;
 
         // 3. Create the Data Rows
         const rows = data.map(row => {
