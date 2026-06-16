@@ -231,7 +231,7 @@ public class RestTestService {
                 } else if ("JS".equals(action.getType())) {
                     setupGraalJsContext(requestJS, httpClientJS, null);
                     try {
-                        graalJsService.executeScript(action.getContent());
+                        graalJsService.executeScript("(function() {\n" + action.getContent() + "\n})()");
                     } catch (Exception e) {
                         report.append("❌ **Error in pre-script:** ").append(e.getMessage()).append("\n");
                     }
@@ -274,7 +274,7 @@ public class RestTestService {
             if (test.getPostScript() != null && !test.getPostScript().isEmpty()) {
                 setupGraalJsContext(requestJS, httpClientJS, responseJS);
                 try {
-                    graalJsService.executeScript(test.getPostScript());
+                    graalJsService.executeScript("(function() {\n" + test.getPostScript() + "\n})()");
                 } catch (Exception e) {
                     report.append("❌ **Error in post-script:** ").append(e.getMessage()).append("\n");
                 }
