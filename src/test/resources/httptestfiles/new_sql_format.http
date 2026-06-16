@@ -1,0 +1,14 @@
+### New SQL Format Test
+GET http://localhost:8080/api/newformat
+
+# < SQL
+    ### DataSource = default
+    ### Query = "SELECT * FROM new_format_table"
+# SQL
+
+> {%
+    client.test("SQL result from new format", function() {
+        const resultSet = client.global.get("ResultSet");
+        client.assert(resultSet.length === 1, "Expected 1 row");
+    });
+%}

@@ -1,0 +1,21 @@
+### Test 1
+< {%
+    request.variables.set("var1", "val1")
+%}
+GET http://localhost:8080/api/test?q={{var1}}
+Header1: Value1
+
+> {%SQL
+    SELECT * FROM my_table WHERE col = :var1
+%}
+
+> {%
+    client.test("Status is 200", function() {
+        client.assert(response.status === 200, "Expected 200");
+    });
+    client.test("SQL result is correct", function() {
+        const resultSet = client.global.get("ResultSet");
+        client.assert(resultSet.length === 1, "Expected 1 row");
+        client.assert(resultSet[0].id === 123, "Expected ID 123");
+    });
+%}

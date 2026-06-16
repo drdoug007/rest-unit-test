@@ -1,0 +1,18 @@
+### SQL Markdown Test
+GET http://localhost:8080/api/markdown
+
+# < SQL
+    ### Query = "SELECT 1 as id, 'Alice' as name"
+# SQL
+
+> {%
+    const columns = client.global.get("ResultSetColumns");
+    const data = client.global.get("ResultSet");
+    const table = markdowner.generateMarkdownTable(columns, data);
+    client.log("\n" + table);
+    
+    client.test("Table generated", function() {
+        client.assert(table.includes("| id | name |"), "Header missing");
+        client.assert(table.includes("| 1 | Alice |"), "Data missing");
+    });
+%}

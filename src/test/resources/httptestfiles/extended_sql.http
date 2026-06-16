@@ -1,0 +1,16 @@
+### Extended SQL Test
+GET http://localhost:8080/api/extended
+
+> {%SQL
+    # Some comments
+    ### DataSource = default
+    ### Query = "SELECT * FROM extended_table"
+    ### ResultSet ||Id|Name||
+%}
+
+> {%
+    client.test("SQL result exists", function() {
+        const resultSet = client.global.get("ResultSet");
+        client.assert(resultSet.length === 1, "Expected 1 row");
+    });
+%}

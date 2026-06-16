@@ -1,0 +1,34 @@
+### GET request to example server
+GET http://127.0.0.1:8080/api/cardealer
+
+# < SQL
+    # The default dataSource is the Spring JDBC Primary dataSource
+    ### DataSource = default
+    ### Query = "SELECT name FROM car_dealer"
+# SQL
+
+> {%
+    client.test("Request executed successfully", function () {
+        client.assert(response.status === 200, "Response status is not 200");
+    });
+
+    client.test("Response includes more than 1 car dealer", function () {
+        const carDealers = jsonPath(response.body, "$");
+        client.assert(carDealers.length > 0, "No car dealers");
+        client.log("Number of Car Dealers :" + carDealers.length)
+    });
+
+    client.test("SQL query returned results", function () {
+        const resultSet = client.global.get("ResultSet");
+        client.assert(resultSet.length > 0, "SQL returned no car dealers");
+        client.log("Number of Car Dealers in DB: " + resultSet.length);
+    });
+
+    const columns = client.global.get("ResultSetColumns");
+    const data = client.global.get("ResultSet");
+    markdowner.heading(3, "Card Dealers");
+    markdowner.table(columns, data);
+
+%}
+
+###
