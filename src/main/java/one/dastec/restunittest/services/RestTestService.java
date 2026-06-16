@@ -1,5 +1,6 @@
 package one.dastec.restunittest.services;
 
+import one.dastec.restunittest.config.AppProperties;
 import one.dastec.restunittest.js.HttpClientJS;
 import one.dastec.restunittest.js.RequestJS;
 import one.dastec.restunittest.js.ResponseJS;
@@ -31,13 +32,15 @@ public class RestTestService {
     private final JdbcTemplate jdbcTemplate;
     private final RestClient.Builder builder;
     private final GraalJsService graalJsService;
+    private final AppProperties appProperties;
 
 
-    public RestTestService(DataSource dataSource, JdbcTemplate jdbcTemplate, RestClient.Builder builder, GraalJsService graalJsService) {
+    public RestTestService(DataSource dataSource, JdbcTemplate jdbcTemplate, RestClient.Builder builder, GraalJsService graalJsService, AppProperties appProperties) {
         this.dataSource = dataSource;
         this.jdbcTemplate = jdbcTemplate;
         this.builder = builder;
         this.graalJsService = graalJsService;
+        this.appProperties = appProperties;
     }
 
     public String runTest(String testPath) {
@@ -49,10 +52,23 @@ public class RestTestService {
         try {
             var content = testFile.getContentAsString(StandardCharsets.UTF_8);
             List<HttpTest> tests = parseHttpFile(content);
-            StringBuilder report = new StringBuilder("# Test Report: " + testPath + "\n\n");
+            StringBuilder report = new StringBuilder();
+            if (appProperties != null && appProperties.getEnvironment() != null) {
+                report.append("Environment: ").append(appProperties.getEnvironment().getName()).append("\n\n");
+            }
+            report.append("# Test Report: ").append(testPath).append("\n\n");
 
             RequestJS requestJS = new RequestJS();
             HttpClientJS httpClientJS = new HttpClientJS();
+
+            // Expose app properties to JS
+            if (appProperties != null) {
+                graalJsService.putMember("environment", appProperties.getEnvironment());
+                // Also expose the whole app properties if needed, or specific parts
+                // The requirement says "properties under app.propertes" but the file has "app.environment"
+                // Assuming "app" object in JS
+                graalJsService.putMember("app", appProperties);
+            }
 
             // Load markdown.js helper into GraalJS context
             try {

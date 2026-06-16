@@ -27,6 +27,7 @@ GET http://127.0.0.1:8080/api/cardealer
     const columns = client.global.get("ResultSetColumns");
     const data = client.global.get("ResultSet");
     markdowner.heading(3, "Card Dealers");
+    markdowner.description("Environment: " + environment.getName());
     markdowner.table(columns, data);
 
 %}

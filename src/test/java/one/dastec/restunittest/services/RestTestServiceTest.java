@@ -1,5 +1,6 @@
 package one.dastec.restunittest.services;
 
+import one.dastec.restunittest.config.AppProperties;
 import one.dastec.restunittest.js.HttpClientJS;
 import one.dastec.restunittest.js.RequestJS;
 import one.dastec.restunittest.models.HttpTest;
@@ -35,6 +36,8 @@ public class RestTestServiceTest {
     private RestClient.RequestBodyUriSpec requestBodyUriSpec;
     private RestClient.ResponseSpec responseSpec;
 
+    private AppProperties appProperties;
+
     @BeforeEach
     public void setUp() {
         dataSource = Mockito.mock(DataSource.class);
@@ -44,6 +47,8 @@ public class RestTestServiceTest {
         restClient = Mockito.mock(RestClient.class);
         requestBodyUriSpec = Mockito.mock(RestClient.RequestBodyUriSpec.class);
         responseSpec = Mockito.mock(RestClient.ResponseSpec.class);
+        appProperties = new AppProperties();
+        appProperties.getEnvironment().setName("TestEnv");
 
         when(builder.build()).thenReturn(restClient);
         when(restClient.method(any())).thenReturn(requestBodyUriSpec);
@@ -51,7 +56,7 @@ public class RestTestServiceTest {
         when(requestBodyUriSpec.header(anyString(), anyString())).thenReturn(requestBodyUriSpec);
         when(requestBodyUriSpec.retrieve()).thenReturn(responseSpec);
         
-        restTestService = new RestTestService(dataSource, jdbcTemplate, builder, graalJsService);
+        restTestService = new RestTestService(dataSource, jdbcTemplate, builder, graalJsService, appProperties);
     }
 
     @Test
