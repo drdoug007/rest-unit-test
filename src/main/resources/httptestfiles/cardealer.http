@@ -1,11 +1,25 @@
+
+
 ### GET request to example server
-GET http://127.0.0.1:8080/api/cardealer
+< {%
+    markdowner.heading(3, "Before: TABLE: CARDEALERS");
+%}
 
 # < SQL
     # The default dataSource is the Spring JDBC Primary dataSource
     ### DataSource = default
     ### Query = "SELECT id, name, address FROM car_dealer"
 # SQL
+
+< {%
+    const columns = client.global.get("ResultSetColumns");
+    const data = client.global.get("ResultSet");
+    markdowner.table(columns, data);
+%}
+
+GET http://127.0.0.1:8080/api/cardealer
+Accept:  application/json
+
 
 > {%
     client.test("Request executed successfully", function () {
@@ -28,12 +42,6 @@ GET http://127.0.0.1:8080/api/cardealer
         client.assert(carDealers.length === resultSet.length, "Car Dealers returned are not the same number of records in the database");
     });
 
-    const columns = client.global.get("ResultSetColumns");
-    const data = client.global.get("ResultSet");
-    const carDealers = jsonPath(response.body, "$");
-    markdowner.heading(3, "Car Dealers");
-    markdowner.description("Environment: " + environment.getName());
-    markdowner.table(columns, data);
     markdowner.heading(3, "Response Message");
     markdowner.codeBlock("json", JSON.stringify(JSON.parse(response.body), null, 2));
 

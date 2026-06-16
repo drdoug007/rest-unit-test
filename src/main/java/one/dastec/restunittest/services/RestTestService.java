@@ -144,30 +144,51 @@ public class RestTestService {
 
         int startParsingFrom = firstLineIsRequest ? firstNonEmptyLine : firstNonEmptyLine + 1;
 
+        StringBuilder currentScript = new StringBuilder();
+
         for (int i = startParsingFrom; i < lines.length; i++) {
             String line = lines[i];
             String trimmedLine = line.trim();
 
             if (trimmedLine.startsWith("< {%")) {
+                if (!currentScript.toString().trim().isEmpty()) {
+                    if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.PreAction("JS", currentScript.toString().trim()));
+                    if (mode.equals("SQL")) test.getPreActions().add(new HttpTest.PreAction("SQL", currentScript.toString().trim()));
+                }
+                currentScript = new StringBuilder();
                 mode = "PRE";
                 continue;
             } else if (trimmedLine.startsWith("> {%SQL") || trimmedLine.startsWith("# < SQL")) {
+                if (!currentScript.toString().trim().isEmpty()) {
+                    if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.PreAction("JS", currentScript.toString().trim()));
+                    if (mode.equals("SQL")) test.getPreActions().add(new HttpTest.PreAction("SQL", currentScript.toString().trim()));
+                }
+                currentScript = new StringBuilder();
                 mode = "SQL";
                 continue;
             } else if (trimmedLine.startsWith("> {%")) {
+                if (!currentScript.toString().trim().isEmpty()) {
+                    if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.PreAction("JS", currentScript.toString().trim()));
+                    if (mode.equals("SQL")) test.getPreActions().add(new HttpTest.PreAction("SQL", currentScript.toString().trim()));
+                }
+                currentScript = new StringBuilder();
                 mode = "POST";
                 continue;
             } else if (trimmedLine.startsWith("%}") || trimmedLine.equals("# SQL")) {
+                if (!currentScript.toString().trim().isEmpty()) {
+                    if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.PreAction("JS", currentScript.toString().trim()));
+                    if (mode.equals("SQL")) test.getPreActions().add(new HttpTest.PreAction("SQL", currentScript.toString().trim()));
+                    if (mode.equals("POST")) postScript.append(currentScript);
+                }
+                currentScript = new StringBuilder();
                 mode = "NONE";
                 continue;
             }
 
-            if (mode.equals("PRE")) {
-                preScript.append(line).append("\n");
+            if (mode.equals("PRE") || mode.equals("SQL")) {
+                currentScript.append(line).append("\n");
             } else if (mode.equals("POST")) {
-                postScript.append(line).append("\n");
-            } else if (mode.equals("SQL")) {
-                sqlScript.append(line).append("\n");
+                currentScript.append(line).append("\n");
             } else if (mode.equals("NONE")) {
                 if (trimmedLine.isEmpty()) {
                     if (method != null && mode.equals("NONE")) {
@@ -203,10 +224,19 @@ public class RestTestService {
 
     private void executeTest(HttpTest test, RequestJS requestJS, HttpClientJS httpClientJS, StringBuilder report) {
         try {
-            // 1. Pre-script
-            if (test.getPreScript() != null && !test.getPreScript().isEmpty()) {
-                graalJsService.putMember("request", requestJS);
-                graalJsService.executeScript(test.getPreScript());
+            // 1. Pre-actions (JS and SQL in order)
+            for (HttpTest.PreAction action : test.getPreActions()) {
+                if ("SQL".equals(action.getType())) {
+                    executeSql(action.getContent(), requestJS, httpClientJS, report);
+                } else if ("JS".equals(action.getType())) {
+                    setupGraalJsContext(requestJS, httpClientJS, null);
+                    try {
+                        graalJsService.executeScript(action.getContent());
+                    } catch (Exception e) {
+                        report.append("❌ **Error in pre-script:** ").append(e.getMessage()).append("\n");
+                    }
+                    appendResults(httpClientJS, report);
+                }
             }
 
             // 2. Resolve variables
@@ -237,115 +267,127 @@ public class RestTestService {
                     responseEntity.getBody()
             );
 
+            // 4. Response Header in report
             report.append("**Response Status:** ").append(responseJS.getStatus()).append("\n\n");
-
-            // 4. SQL Execution
-            if (test.getSqlScript() != null && !test.getSqlScript().isEmpty()) {
-                String sql = test.getSqlScript();
-                // Basic parameter substitution in SQL
-                for (Map.Entry<String, Object> entry : requestJS.getVariables().all().entrySet()) {
-                    sql = sql.replace(":" + entry.getKey(), entry.getValue().toString());
-                }
-                
-                // Very basic SQL parser for the extended format
-                String actualSql = sql;
-                String[] sqlLines = sql.split("\\r?\\n");
-                for (String line : sqlLines) {
-                    String trimmedLine = line.trim();
-                    if (trimmedLine.startsWith("### Query =")) {
-                        actualSql = trimmedLine.substring(trimmedLine.indexOf("=") + 1).trim();
-                        // Remove potential wrapping quotes
-                        if (actualSql.startsWith("\"") && actualSql.endsWith("\"")) {
-                            actualSql = actualSql.substring(1, actualSql.length() - 1);
-                        }
-                        break;
-                    }
-                }
-
-                List<Map<String, Object>> resultSet = new ArrayList<>();
-                SqlRowSet rowSet = jdbcTemplate.queryForRowSet(actualSql);
-                SqlRowSetMetaData metaData = rowSet.getMetaData();
-                String[] columnNames = metaData.getColumnNames();
-
-                while (rowSet.next()) {
-                    Map<String, Object> row = new LinkedHashMap<>();
-                    for (String col : columnNames) {
-                        row.put(col, rowSet.getObject(col));
-                    }
-                    resultSet.add(row);
-                }
-
-                httpClientJS.getGlobal().set("ResultSet", resultSet);
-                httpClientJS.getGlobal().set("ResultSetColumns", columnNames);
-                report.append("**SQL Query executed.** Returned ").append(resultSet.size()).append(" rows.\n\n");
-            }
 
             // 5. Post-script
             if (test.getPostScript() != null && !test.getPostScript().isEmpty()) {
-                graalJsService.putMember("__client", httpClientJS);
-                graalJsService.putMember("response", responseJS);
-                // Functional interface for jsonPath to be accessible from JS
-                graalJsService.putMember("__jsonPath", (java.util.function.BiFunction<Object, String, Object>) (json, path) -> {
-                    try {
-                        if (json instanceof String) {
-                            return JsonPath.read((String) json, path);
-                        } else {
-                            // If it's already an object (e.g. from a previous JS step), 
-                            // we might need to convert it back to string or handle it.
-                            // Jayway JsonPath can also take an object.
-                            return JsonPath.read(json, path);
-                        }
-                    } catch (Exception e) {
-                        return null;
-                    }
-                });
-
-                // Map client.assert and other methods
-                graalJsService.executeScript("var client = { " +
-                        "test: function(name, callback) { __client.test(name, callback); }," +
-                        "assert: function(condition, message) { __client.assertCondition(condition, message); }," +
-                        "log: function(message) { __client.log(message); }," +
-                        "markdown: function(content) { __client.markdown(content); }," +
-                        "global: __client.global" +
-                        "};" +
-                        "var jsonPath = function(json, path) { return __jsonPath.apply(json, path); };");
-                
+                setupGraalJsContext(requestJS, httpClientJS, responseJS);
                 try {
                     graalJsService.executeScript(test.getPostScript());
                 } catch (Exception e) {
                     report.append("❌ **Error in post-script:** ").append(e.getMessage()).append("\n");
                 }
-
-                report.append("**Test Results:**\n");
-                for (String result : httpClientJS.getTestResults()) {
-                    report.append("- ").append(result).append("\n");
-                }
-                httpClientJS.getTestResults().clear();
-
-                if (!httpClientJS.getLogs().isEmpty()) {
-                    report.append("**Logs:**\n");
-                    for (String logEntry : httpClientJS.getLogs()) {
-                        if (logEntry.contains("\n")) {
-                            report.append("- ").append(logEntry.replace("\n", "\n  ")).append("\n");
-                        } else {
-                            report.append("- ").append(logEntry).append("\n");
-                        }
-                    }
-                    httpClientJS.getLogs().clear();
-                }
-
-                if (!httpClientJS.getMarkdownEntries().isEmpty()) {
-                    report.append("\n");
-                    for (String markdownEntry : httpClientJS.getMarkdownEntries()) {
-                        report.append(markdownEntry).append("\n");
-                    }
-                    httpClientJS.getMarkdownEntries().clear();
-                }
+                appendResults(httpClientJS, report);
             }
 
         } catch (Exception e) {
             report.append("❌ **Error during execution:** ").append(e.getMessage()).append("\n");
             e.printStackTrace();
+        }
+    }
+
+    private void executeSql(String sqlScript, RequestJS requestJS, HttpClientJS httpClientJS, StringBuilder report) {
+        String sql = sqlScript;
+        // Basic parameter substitution in SQL
+        for (Map.Entry<String, Object> entry : requestJS.getVariables().all().entrySet()) {
+            sql = sql.replace(":" + entry.getKey(), entry.getValue().toString());
+        }
+
+        // Very basic SQL parser for the extended format
+        String actualSql = sql;
+        String[] sqlLines = sql.split("\\r?\\n");
+        for (String line : sqlLines) {
+            String trimmedLine = line.trim();
+            if (trimmedLine.startsWith("### Query =")) {
+                actualSql = trimmedLine.substring(trimmedLine.indexOf("=") + 1).trim();
+                // Remove potential wrapping quotes
+                if (actualSql.startsWith("\"") && actualSql.endsWith("\"")) {
+                    actualSql = actualSql.substring(1, actualSql.length() - 1);
+                }
+                break;
+            }
+        }
+
+        List<Map<String, Object>> resultSet = new ArrayList<>();
+        SqlRowSet rowSet = jdbcTemplate.queryForRowSet(actualSql);
+        SqlRowSetMetaData metaData = rowSet.getMetaData();
+        String[] columnNames = metaData.getColumnNames();
+
+        while (rowSet.next()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            for (String col : columnNames) {
+                row.put(col, rowSet.getObject(col));
+            }
+            resultSet.add(row);
+        }
+
+        httpClientJS.getGlobal().set("ResultSet", resultSet);
+        httpClientJS.getGlobal().set("ResultSetColumns", columnNames);
+        report.append("**SQL Query executed.** Returned ").append(resultSet.size()).append(" rows.\n\n");
+    }
+
+    private void setupGraalJsContext(RequestJS requestJS, HttpClientJS httpClientJS, ResponseJS responseJS) {
+        graalJsService.putMember("request", requestJS);
+        graalJsService.putMember("__client", httpClientJS);
+        if (responseJS != null) {
+            graalJsService.putMember("response", responseJS);
+        } else {
+            // Remove previous response if any
+            graalJsService.getContext().getBindings("js").removeMember("response");
+        }
+
+        // Functional interface for jsonPath to be accessible from JS
+        graalJsService.putMember("__jsonPath", (java.util.function.BiFunction<Object, String, Object>) (json, path) -> {
+            try {
+                if (json instanceof String) {
+                    return JsonPath.read((String) json, path);
+                } else {
+                    return JsonPath.read(json, path);
+                }
+            } catch (Exception e) {
+                return null;
+            }
+        });
+
+        // Map client.assert and other methods
+        graalJsService.executeScript("var client = { " +
+                "test: function(name, callback) { __client.test(name, callback); }," +
+                "assert: function(condition, message) { __client.assertCondition(condition, message); }," +
+                "log: function(message) { __client.log(message); }," +
+                "markdown: function(content) { __client.markdown(content); }," +
+                "global: __client.global" +
+                "};" +
+                "var jsonPath = function(json, path) { return __jsonPath.apply(json, path); };");
+    }
+
+    private void appendResults(HttpClientJS httpClientJS, StringBuilder report) {
+        if (!httpClientJS.getMarkdownEntries().isEmpty()) {
+            report.append("\n");
+            for (String markdownEntry : httpClientJS.getMarkdownEntries()) {
+                report.append(markdownEntry).append("\n");
+            }
+            httpClientJS.getMarkdownEntries().clear();
+        }
+
+        if (!httpClientJS.getTestResults().isEmpty()) {
+            report.append("**Test Results:**\n");
+            for (String result : httpClientJS.getTestResults()) {
+                report.append("- ").append(result).append("\n");
+            }
+            httpClientJS.getTestResults().clear();
+        }
+
+        if (!httpClientJS.getLogs().isEmpty()) {
+            report.append("**Logs:**\n");
+            for (String logEntry : httpClientJS.getLogs()) {
+                if (logEntry.contains("\n")) {
+                    report.append("- ").append(logEntry.replace("\n", "\n  ")).append("\n");
+                } else {
+                    report.append("- ").append(logEntry).append("\n");
+                }
+            }
+            httpClientJS.getLogs().clear();
         }
     }
 

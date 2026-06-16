@@ -14,6 +14,20 @@ public class HttpTest {
     private String body;
     private String sqlScript;
     private String postScript;
+    private List<PreAction> preActions = new ArrayList<>();
+
+    public static class PreAction {
+        private final String type; // JS or SQL
+        private final String content;
+
+        public PreAction(String type, String content) {
+            this.type = type;
+            this.content = content;
+        }
+
+        public String getType() { return type; }
+        public String getContent() { return content; }
+    }
 
     // Getters and Setters
     public String getName() { return name; }
@@ -32,4 +46,6 @@ public class HttpTest {
     public void setSqlScript(String sqlScript) { this.sqlScript = sqlScript; }
     public String getPostScript() { return postScript; }
     public void setPostScript(String postScript) { this.postScript = postScript; }
+    public List<PreAction> getPreActions() { return preActions; }
+    public void setPreActions(List<PreAction> preActions) { this.preActions = preActions; }
 }
