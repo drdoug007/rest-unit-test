@@ -6,7 +6,7 @@ A Spring Boot-based framework for executing HTTP-based unit tests with integrate
 
 - **Web Interface**: A responsive web-based UI to select, run, and display test reports with live rendering.
 - **PDF Export**: Export generated test reports to PDF directly from the web interface.
-- **Sequential Execution**: Supports SQL blocks and a consolidated JavaScript block before and after the HTTP request.
+- **Sequential Execution**: Supports interleaved execution of SQL and JavaScript blocks before and after the HTTP request, preserving the order defined in the test file.
 - **HTTP Request Execution**: Supports standard HTTP methods (GET, POST, etc.) with variable resolution.
 - **SQL Verification**: Execute SQL queries against a database to verify state changes or fetch data for assertions.
 - **JavaScript Assertions**: Use GraalJS to write powerful test logic and assertions in JavaScript.
@@ -45,7 +45,7 @@ Example: `http://localhost:8099/api/runtest/cardealer`
 
 < {%
     markdowner.heading(3, "Before Request");
-    // All < {% blocks are consolidated into one pre-script execution
+    // Pre-request blocks are executed in order
     const count = client.global.get("count");
 %}
 
@@ -63,7 +63,7 @@ Content-Type: application/json
         client.assert(response.status === 200, "Response status is not 200");
     });
 
-    // All > {% blocks are consolidated into one post-script execution
+    // Post-request blocks are executed in order
     markdowner.heading(3, "Response Details");
 %}
 ```

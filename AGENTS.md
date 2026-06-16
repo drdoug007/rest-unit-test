@@ -13,7 +13,7 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 ## Agent Achievements
 
 - Updated the web UI to occupy 80% width on desktop and added a PDF export button.
-- Enhanced the test engine to support ordered SQL blocks and consolidated JavaScript execution before and after requests.
+- Enhanced the test engine to support interleaved and ordered execution of SQL and JavaScript blocks before and after requests.
 - Implemented IIFE wrapping for JavaScript blocks to ensure local scoping and prevent variable collisions.
 - Formatted JSON response messages to be pretty-printed in the generated Markdown reports.
 - Ensured left-alignment of Markdown table column headers for better readability.
