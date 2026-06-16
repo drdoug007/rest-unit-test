@@ -64,8 +64,11 @@ public class RestTestService {
             // Expose app properties to JS and populate variables
             if (appProperties != null && appProperties.getEnvironment() != null) {
                 graalJsService.putMember("environment", appProperties.getEnvironment());
-                if (appProperties.getEnvironment().getBaseUrl() != null) {
-                    requestJS.getVariables().set("baseUrl", appProperties.getEnvironment().getBaseUrl());
+                String baseUrl = appProperties.getEnvironment().getBaseUrl();
+                if (baseUrl != null) {
+                    requestJS.getVariables().set("baseUrl", baseUrl);
+                } else {
+                    requestJS.getVariables().set("baseUrl", "{{baseUrl}}");
                 }
                 if (appProperties.getEnvironment().getName() != null) {
                     requestJS.getVariables().set("environmentName", appProperties.getEnvironment().getName());
@@ -395,7 +398,10 @@ public class RestTestService {
         if (text == null) return null;
         String result = text;
         for (Map.Entry<String, Object> entry : variables.entrySet()) {
-            result = result.replace("{{" + entry.getKey() + "}}", entry.getValue().toString());
+            if (entry.getKey() != null) {
+                String value = entry.getValue() != null ? entry.getValue().toString() : "";
+                result = result.replace("{{" + entry.getKey() + "}}", value);
+            }
         }
         return result;
     }

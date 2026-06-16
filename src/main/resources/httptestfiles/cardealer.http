@@ -45,3 +45,44 @@ Accept:  application/json
 %}
 
 ###
+
+###
+# < SQL
+    # The default dataSource is the Spring JDBC Primary dataSource
+    ### DataSource = default
+    ### Query = "SELECT id, name, model, color, price FROM car where car.dealer = 1"
+# SQL
+< {%
+    markdowner.heading(3, "Before: TABLE: CAR");
+    const columns = client.global.get("ResultSetColumns");
+    const data = client.global.get("ResultSet");
+    markdowner.table(columns, data);
+%}
+POST {{baseUrl}}/api/cardealer/1/car
+Content-Type: application/json
+Accept: application/json
+
+{
+  "make": "Chrysler",
+  "model": "Valiant",
+  "color": "Purple",
+  "price": "4000"
+}
+
+
+> {%
+    client.test("Request executed successfully", function () {
+        client.assert(response.status === 200, "Response status is not 200");
+    });
+
+    client.test("Response includes ID", function () {
+        const carDealers = jsonPath(response.body.id, "$");
+        client.assert(carDealers, "Response did not contain ID")
+    });
+
+
+
+    markdowner.heading(3, "Response Message");
+    markdowner.codeBlock("json", JSON.stringify(JSON.parse(response.body), null, 2));
+
+%}
