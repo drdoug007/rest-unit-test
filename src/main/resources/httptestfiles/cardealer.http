@@ -4,7 +4,7 @@ GET http://127.0.0.1:8080/api/cardealer
 # < SQL
     # The default dataSource is the Spring JDBC Primary dataSource
     ### DataSource = default
-    ### Query = "SELECT name FROM car_dealer"
+    ### Query = "SELECT id, name, address FROM car_dealer"
 # SQL
 
 > {%
@@ -31,7 +31,7 @@ GET http://127.0.0.1:8080/api/cardealer
     const columns = client.global.get("ResultSetColumns");
     const data = client.global.get("ResultSet");
     const carDealers = jsonPath(response.body, "$");
-    markdowner.heading(3, "Card Dealers");
+    markdowner.heading(3, "Car Dealers");
     markdowner.description("Environment: " + environment.getName());
     markdowner.table(columns, data);
     markdowner.heading(3, "Response Message");

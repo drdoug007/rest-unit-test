@@ -15,7 +15,7 @@
 - ✅ SQL query returned results
 - ✅ Response Data Matches Database
 
-### Card Dealers
+### Car Dealers
 
 Environment: Development
 
