@@ -61,29 +61,33 @@ public class RestTestService {
             RequestJS requestJS = new RequestJS();
             HttpClientJS httpClientJS = new HttpClientJS();
 
-            // Expose app properties to JS
-            if (appProperties != null) {
+            // Expose app properties to JS and populate variables
+            if (appProperties != null && appProperties.getEnvironment() != null) {
                 graalJsService.putMember("environment", appProperties.getEnvironment());
-                // Also expose the whole app properties if needed, or specific parts
-                // The requirement says "properties under app.propertes" but the file has "app.environment"
-                // Assuming "app" object in JS
+                if (appProperties.getEnvironment().getBaseUrl() != null) {
+                    requestJS.getVariables().set("baseUrl", appProperties.getEnvironment().getBaseUrl());
+                }
+                if (appProperties.getEnvironment().getName() != null) {
+                    requestJS.getVariables().set("environmentName", appProperties.getEnvironment().getName());
+                }
+                // Also expose the whole app properties if needed
                 graalJsService.putMember("app", appProperties);
             }
 
-            // Load markdown.js helper into GraalJS context
-            try {
-                if (graalJsService.getContext().getBindings("js").getMember("Markdown") == null) {
-                    ClassPathResource markdownResource = new ClassPathResource("httptestfiles/markdown.js");
-                    if (markdownResource.exists()) {
-                        String markdownJs = markdownResource.getContentAsString(StandardCharsets.UTF_8);
-                        // Strip exports for non-module GraalJS eval
-                        markdownJs = markdownJs.replaceAll("export ", "");
-                        graalJsService.executeScript(markdownJs);
-                    }
+        // Load markdown.js helper into GraalJS context
+        try {
+            if (graalJsService.getContext().getBindings("js").getMember("Markdown") == null) {
+                ClassPathResource markdownResource = new ClassPathResource("httptestfiles/markdown.js");
+                if (markdownResource.exists()) {
+                    String markdownJs = markdownResource.getContentAsString(StandardCharsets.UTF_8);
+                    // Strip exports for non-module GraalJS eval
+                    markdownJs = markdownJs.replaceAll("(?m)^export ", "");
+                    graalJsService.executeScript(markdownJs);
                 }
-            } catch (IOException e) {
-                log.warn("Could not load markdown.js: {}", e.getMessage());
             }
+        } catch (IOException e) {
+            log.warn("Could not load markdown.js: {}", e.getMessage());
+        }
 
             for (HttpTest test : tests) {
                 report.append("## ").append(test.getName()).append("\n\n");

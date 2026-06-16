@@ -1,6 +1,12 @@
 export class Markdown {
 
     generateMarkdownTable(columns, data) {
+        if (!columns || !Array.isArray(columns) || columns.length === 0) {
+            return "No data available";
+        }
+        if (!data || !Array.isArray(data)) {
+            data = [];
+        }
         // 1. Create the Header Row: | id | name | email |
         const header = `| ${columns.join(' | ')} |`;
 
