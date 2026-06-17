@@ -37,4 +37,9 @@ public class RestTestApi {
     public String runTest(@PathVariable("testName") String testName) {
         return restTestService.runTest(testName);
     }
+
+    @GetMapping(path = "test/{testName}", produces = "text/plain; charset=UTF-8")
+    public String getTestSource(@PathVariable("testName") String testName) {
+        return restTestService.getTestSource(testName);
+    }
 }

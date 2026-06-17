@@ -42,7 +42,7 @@ public class RestTestService {
         this.appProperties = appProperties;
     }
 
-    public String runTest(String testName) {
+    public String getTestSource(String testName) {
         var testPath = "httptestfiles/" + testName + ".http";
         Resource testFile;
         if (testPath.startsWith("/") || (testPath.length() > 1 && testPath.charAt(1) == ':')) {
@@ -52,10 +52,18 @@ public class RestTestService {
         }
         if (!testFile.exists()) {
             log.error("Test not found: {}", testPath);
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,  "Test not found: " + testName);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Test not found: " + testName);
         }
         try {
-            var content = testFile.getContentAsString(StandardCharsets.UTF_8);
+            return testFile.getContentAsString(StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new RuntimeException("Error reading test file: " + testPath, e);
+        }
+    }
+
+    public String runTest(String testName) {
+        try {
+            var content = getTestSource(testName);
             List<HttpTest> tests = parseHttpFile(content);
             StringBuilder report = new StringBuilder();
             if (appProperties != null && appProperties.getEnvironment() != null) {
@@ -104,7 +112,8 @@ public class RestTestService {
             }
 
             return report.toString();
-        } catch (IOException e) {
+        } catch (Exception e) {
+            log.error("Error running test {}: {}", testName, e.getMessage(), e);
             throw new RuntimeException(e);
         }
     }

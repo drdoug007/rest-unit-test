@@ -142,4 +142,11 @@ public class RestTestServiceTest {
         assertTrue(result.contains("| id | name |"), "Report should contain the table header");
         assertTrue(result.contains("| 1 | Alice |"), "Report should contain the table data");
     }
+
+    @Test
+    public void testGetTestSource() {
+        String source = restTestService.getTestSource("test");
+        assertTrue(source.contains("GET http://localhost:8080/api/test"), "Source should contain the request");
+        assertTrue(source.contains("### Test 1"), "Source should contain the test name");
+    }
 }

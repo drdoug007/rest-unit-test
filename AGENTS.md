@@ -27,3 +27,5 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Fixed `URI with undefined scheme` error by enforcing case-sensitive HTTP method matching in the parser, preventing titles like "Get car" from being misidentified as requests.
 - Updated documentation in `README.md` and `AGENTS.md` to reflect recent features, fixes, and architectural improvements.
 - Moved sensitive datasource credentials to `application-local.yaml` and added it to `.gitignore`.
+- Added a "View Source" button to the web UI to display the raw `.http` test file content.
+- Improved the web UI by horizontally aligning action buttons using flex layout with consistent spacing.
