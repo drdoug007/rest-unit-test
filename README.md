@@ -4,20 +4,22 @@ A Spring Boot-based framework for executing HTTP-based unit tests with integrate
 
 ## Features
 
-- **Web Interface**: A responsive web-based UI to select, run, and display test reports with live rendering.
-- **PDF Export**: Export generated test reports to PDF directly from the web interface.
+- **Web Interface**: A responsive web-based UI (80% width) to select, run, and display test reports with live rendering and PDF export.
 - **Sequential Execution**: Supports interleaved execution of SQL and JavaScript blocks before and after the HTTP request, preserving the order defined in the test file.
-- **HTTP Request Execution**: Supports standard HTTP methods (GET, POST, etc.) with variable resolution.
+- **Robust Parser**: Strict case-sensitive HTTP method validation (GET, POST, etc.) prevents misidentification of test titles or scripts as requests.
 - **SQL Verification**: Execute SQL queries against a database via SQL blocks or directly from JavaScript using `client.sqlQuery(sql)`.
-- **JavaScript Assertions**: Use GraalJS to write powerful test logic and assertions in JavaScript.
-- **Markdown Reports**: Automatically generates detailed test reports in Markdown format with pretty-printed JSON.
+- **JavaScript Assertions**: Write test logic in JavaScript with `client.test()`, `client.assert()`, and `jsonPath()` support.
+- **Variable Scoping**: JavaScript blocks are automatically wrapped in IIFEs to ensure local scoping and prevent variable collisions.
+- **Variable Resolution**: Comprehensive support for `{{variable}}` resolution in URLs, headers, and bodies, including global and environment-specific variables.
+- **Markdown Reports**: Automatically generates detailed reports in Markdown format with pretty-printed JSON and left-aligned table headers.
 - **Custom Markdown Helper**: A `markdowner` helper available in JavaScript to add headings, tables, and code blocks directly to reports.
+- **Compatibility Aliases**: Supports `client.variables.global` as an alias for `client.global` for better compatibility with other REST clients.
 
 ## Getting Started
 
 ### Prerequisites
 
-- Graalvm JDK 25 or higher
+- Graalvm JDK 25 or higher (with `--enable-native-access=ALL-UNNAMED`)
 - PostgreSQL (or your preferred database)
 
 ### Configuration
@@ -76,6 +78,9 @@ Content-Type: application/json
 
     // Post-request blocks are executed in order
     markdowner.heading(3, "Response Details");
+
+    // Compatibility alias for global variables
+    client.variables.global.set("savedId", jsonPath(response.body, "$.id"));
 %}
 ```
 
