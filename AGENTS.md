@@ -29,3 +29,5 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Moved sensitive datasource credentials to `application-local.yaml` and added it to `.gitignore`.
 - Added a "View Source" button to the web UI to display the raw `.http` test file content.
 - Improved the web UI by horizontally aligning action buttons using flex layout with consistent spacing.
+- Optimized the web UI for desktop by introducing a three-column layout that displays the source code panel alongside the test report.
+- Automatically fetch and display source code during test execution, removing the need for a separate "View Source" button on desktop.
