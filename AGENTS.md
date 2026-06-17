@@ -35,3 +35,9 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Fixed syntax highlighting to ensure it is correctly applied to both the source code panel and Markdown report content.
 - Improved syntax highlighting robustness by using `setTimeout` for deferred execution and adding defensive checks for the `hljs` library.
 - Fixed syntax highlighting in Markdown reports to default to HTTP language for better visibility of headers and response data.
+- Added a "Clone" button to the source panel to enable editing of `.http` test files.
+- Implemented a "Run" capability for edited source code, allowing custom tests to be executed and reported instantly without saving to disk.
+- Added a new backend API endpoint `POST /api/runtest/custom` to support execution of arbitrary `.http` content.
+- Improved the web UI layout to be full-height on desktop, with scrollable sidebar, report, and source panels.
+- Optimized the "Clone" editor to vertically fill the available space in the source panel.
+- Fixed the source editor textarea to correctly fill all available vertical space on desktop.

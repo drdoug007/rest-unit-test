@@ -10,16 +10,22 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/http.min.js"></script>
     <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             line-height: 1.6;
             color: #333;
-            margin: 0;
-            padding: 20px;
             background-color: #f4f7f9;
             display: flex;
             flex-direction: column;
             align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
         }
         header {
             border-bottom: 2px solid #007bff;
@@ -37,6 +43,8 @@
             gap: 20px;
             width: 100%;
             max-width: 1200px;
+            flex: 1;
+            min-height: 0; /* Important for flex children to be able to shrink below their content */
         }
         @media (min-width: 1024px) {
             .container, header {
@@ -47,7 +55,7 @@
                 display: none !important;
             }
             .source-panel {
-                display: block !important;
+                display: flex !important;
             }
         }
         .sidebar {
@@ -56,7 +64,14 @@
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            min-height: 500px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #test-list {
+            flex: 1;
+            overflow-y: auto;
+            margin: 0;
         }
         .main-content {
             flex: 2;
@@ -64,7 +79,14 @@
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            min-height: 500px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #report-content {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: auto;
         }
         .source-panel {
             flex: 2;
@@ -73,7 +95,12 @@
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            min-height: 500px;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #source-content {
+            flex: 1;
+            overflow-y: auto;
             overflow-x: auto;
         }
         .source-panel h3 {
@@ -81,6 +108,9 @@
             color: #007bff;
             border-bottom: 1px solid #eee;
             padding-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         ul { list-style: none; padding: 0; }
         li {
@@ -131,7 +161,7 @@
             font-style: italic;
             color: #6c757d;
         }
-        .btn-export, .btn-source {
+        .btn-export, .btn-source, .btn-clone, .btn-run {
             display: none;
             background-color: #28a745;
             color: white;
@@ -142,14 +172,30 @@
             font-size: 14px;
             transition: background-color 0.2s;
         }
-        .btn-export:hover {
+        .btn-export:hover, .btn-run:hover {
             background-color: #218838;
         }
-        .btn-source {
+        .btn-source, .btn-clone {
             background-color: #17a2b8;
         }
-        .btn-source:hover {
+        .btn-source:hover, .btn-clone:hover {
             background-color: #138496;
+        }
+        .btn-clone {
+            display: inline-block; /* Initially hidden until content is loaded */
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+        #source-editor {
+            width: 100%;
+            flex: 1;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            display: none;
+            resize: none;
+            box-sizing: border-box;
         }
         #header-actions {
             display: flex;
@@ -180,10 +226,17 @@
             </div>
         </div>
         <div class="source-panel">
-            <h3>Source Code</h3>
+            <h3>
+                Source Code
+                <div>
+                    <button id="clone-btn" class="btn-clone" style="display: none;">Clone</button>
+                    <button id="run-custom-btn" class="btn-run" style="display: none;">Run</button>
+                </div>
+            </h3>
             <div id="source-content">
                 <p class="loading">Select a test to view its source.</p>
             </div>
+            <textarea id="source-editor"></textarea>
         </div>
     </div>
 
@@ -193,8 +246,12 @@
         const sourceContent = document.getElementById('source-content');
         const exportBtn = document.getElementById('export-btn');
         const sourceBtn = document.getElementById('source-btn');
+        const cloneBtn = document.getElementById('clone-btn');
+        const runCustomBtn = document.getElementById('run-custom-btn');
+        const sourceEditor = document.getElementById('source-editor');
         let currentTestName = '';
         let isViewingSource = false;
+        let isEditing = false;
         let lastMarkdown = '';
         let lastSource = '';
 
@@ -288,6 +345,12 @@
                 
                 exportBtn.style.display = 'block';
                 sourceBtn.style.display = 'block';
+                cloneBtn.style.display = 'inline-block';
+                isEditing = false;
+                sourceEditor.style.display = 'none';
+                sourceContent.style.display = 'block';
+                runCustomBtn.style.display = 'none';
+                cloneBtn.textContent = 'Clone';
             } catch (error) {
                 reportContent.innerHTML = `<p style="color: red">Error running test: ${error.message}</p>`;
             }
@@ -331,6 +394,69 @@
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
             html2pdf().set(opt).from(element).save();
+        };
+
+        cloneBtn.onclick = () => {
+            if (!isEditing) {
+                isEditing = true;
+                sourceEditor.value = lastSource;
+                sourceContent.style.display = 'none';
+                sourceEditor.style.display = 'block';
+                runCustomBtn.style.display = 'inline-block';
+                cloneBtn.textContent = 'Cancel';
+            } else {
+                isEditing = false;
+                sourceContent.style.display = 'block';
+                sourceEditor.style.display = 'none';
+                runCustomBtn.style.display = 'none';
+                cloneBtn.textContent = 'Clone';
+            }
+        };
+
+        runCustomBtn.onclick = async () => {
+            const editedCode = sourceEditor.value;
+            reportContent.innerHTML = `<p class="loading">Running custom test...</p>`;
+            
+            try {
+                const response = await fetch('/api/runtest/custom', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/plain; charset=UTF-8'
+                    },
+                    body: editedCode
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                lastMarkdown = await response.text();
+                lastSource = editedCode;
+
+                reportContent.innerHTML = marked.parse(lastMarkdown);
+                sourceContent.innerHTML = `<pre><code class="language-http">${escapeHtml(lastSource)}</code></pre>`;
+                
+                // Highlight
+                setTimeout(() => {
+                    if (typeof hljs !== 'undefined') {
+                        const sourceCode = sourceContent.querySelector('code');
+                        if (sourceCode) hljs.highlightElement(sourceCode);
+                        reportContent.querySelectorAll('pre code').forEach((block) => {
+                            hljs.highlightElement(block);
+                        });
+                    }
+                }, 0);
+
+                // Exit edit mode
+                isEditing = false;
+                sourceContent.style.display = 'block';
+                sourceEditor.style.display = 'none';
+                runCustomBtn.style.display = 'none';
+                cloneBtn.textContent = 'Clone';
+                
+            } catch (error) {
+                reportContent.innerHTML = `<p style="color: red">Error running custom test: ${error.message}</p>`;
+            }
         };
 
         fetchTests();

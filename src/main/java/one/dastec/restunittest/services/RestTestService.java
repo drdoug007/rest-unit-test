@@ -62,8 +62,12 @@ public class RestTestService {
     }
 
     public String runTest(String testName) {
+        var content = getTestSource(testName);
+        return runTestWithContent(testName, content);
+    }
+
+    public String runTestWithContent(String testName, String content) {
         try {
-            var content = getTestSource(testName);
             List<HttpTest> tests = parseHttpFile(content);
             StringBuilder report = new StringBuilder();
             if (appProperties != null && appProperties.getEnvironment() != null) {

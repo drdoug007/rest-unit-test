@@ -149,4 +149,15 @@ public class RestTestServiceTest {
         assertTrue(source.contains("GET http://localhost:8080/api/test"), "Source should contain the request");
         assertTrue(source.contains("### Test 1"), "Source should contain the test name");
     }
+
+    @Test
+    public void testRunTestWithContent() {
+        String content = "### Custom Test\nGET http://example.com";
+        ResponseEntity<String> responseEntity = new ResponseEntity<>("OK", HttpStatus.OK);
+        when(responseSpec.toEntity(String.class)).thenReturn(responseEntity);
+
+        String result = restTestService.runTestWithContent("Custom Test", content);
+        assertTrue(result.contains("# Test Report: Custom Test"));
+        assertTrue(result.contains("## Custom Test"));
+    }
 }

@@ -42,4 +42,9 @@ public class RestTestApi {
     public String getTestSource(@PathVariable("testName") String testName) {
         return restTestService.getTestSource(testName);
     }
+
+    @PostMapping(path = "runtest/custom", produces = "text/markdown; charset=UTF-8")
+    public String runTestCustom(@RequestBody String content) {
+        return restTestService.runTestWithContent("Custom Test", content);
+    }
 }
