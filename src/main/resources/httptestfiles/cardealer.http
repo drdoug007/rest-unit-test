@@ -95,3 +95,56 @@ Accept: application/json
     markdowner.codeBlock("json", JSON.stringify(JSON.parse(response.body), null, 2));
 
 %}
+
+### Update car
+PUT {{baseUrl}}/api/car/{{carId}}
+Accept: application/json
+Content-Type: application/json
+
+{
+    "color": "Red"
+}
+
+> {%
+    client.test("Request executed successfully", function () {
+        client.assert(response.status === 200, "Response status is not 200");
+    });
+
+    client.test("Response includes ID", function () {
+        const id = jsonPath(response.body, "$.id");
+        client.assert(id, "Response did not contain ID")
+    });
+
+    markdowner.heading(3, "Response Message");
+    markdowner.codeBlock("json", JSON.stringify(JSON.parse(response.body), null, 2));
+
+%}
+
+### Delete car
+< {%
+    const id = client.global.get("carId");
+    const query = "SELECT id, make, model, color, price FROM car WHERE car.id = " + id;
+    const result = client.sqlQuery(query);
+    client.assert(result.data.length === 1, "Record not found in DB: " + result.data.length);
+    markdowner.heading(3, "Before: TABLE: CAR");
+    markdowner.table(result.columns, result.data);
+%}
+
+DELETE {{baseUrl}}/api/car/{{carId}}
+Accept: application/json
+Content-Type: application/json
+
+> {%
+    client.test("Request executed successfully", function () {
+        client.assert(response.status === 204, "Response status is not 204");
+    });
+
+    client.test("Car deleted from Database", function () {
+        const id = client.global.get("carId");
+        const query = "SELECT id, make, model, color, price FROM car WHERE car.id = " + id;
+        const result = client.sqlQuery(query);
+        client.assert(result.data.length === 0, "Record found in DB");
+    });
+
+
+%}

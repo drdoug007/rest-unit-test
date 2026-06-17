@@ -5,6 +5,7 @@ import one.dastec.restunittest.js.HttpClientJS;
 import one.dastec.restunittest.js.RequestJS;
 import one.dastec.restunittest.js.ResponseJS;
 import one.dastec.restunittest.models.HttpTest;
+import org.graalvm.polyglot.Value;
 import com.jayway.jsonpath.JsonPath;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -116,7 +117,7 @@ public class RestTestService {
         String[] blocks = content.split("(?m)^###");
         for (String block : blocks) {
             if (block.trim().isEmpty()) continue;
-            tests.add(parseBlock(block));
+            tests.add(parseBlock("###"+block));
         }
         return tests;
     }
@@ -143,7 +144,7 @@ public class RestTestService {
             firstLineIsRequest = firstLineParts[0].matches("^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)$");
         }
         
-        test.setName(firstLine);
+        test.setName(firstLine.replaceAll("^###", "").trim());
 
         StringBuilder preScript = new StringBuilder();
         StringBuilder postScript = new StringBuilder();
@@ -253,7 +254,15 @@ public class RestTestService {
             }
 
             // 2. Resolve variables
-            String url = resolveVariables(test.getUrl(), requestJS.getVariables().all());
+            Map<String, Object> allVars = new HashMap<>(requestJS.getVariables().all());
+            httpClientJS.getGlobal().all().forEach((k, v) -> {
+                if (v != null) {
+                    allVars.put(k, v);
+                }
+            });
+            
+
+            String url = resolveVariables(test.getUrl(), allVars);
             if (url == null || url.trim().isEmpty()) {
                 throw new RuntimeException("Request URL is missing. Check if the .http file has a valid request line (e.g., GET http://...)");
             }
@@ -262,8 +271,8 @@ public class RestTestService {
                 throw new RuntimeException("Request method is missing. Check if the .http file has a valid request line.");
             }
             Map<String, String> headers = new HashMap<>();
-            test.getHeaders().forEach((k, v) -> headers.put(k, resolveVariables(v, requestJS.getVariables().all())));
-            String body = resolveVariables(test.getBody(), requestJS.getVariables().all());
+            test.getHeaders().forEach((k, v) -> headers.put(k, resolveVariables(v, allVars)));
+            String body = resolveVariables(test.getBody(), allVars);
 
             report.append("**Request:** `").append(method).append(" ").append(url).append("`\n\n");
 
@@ -399,8 +408,8 @@ public class RestTestService {
                 "assert: function(condition, message) { __client.assertCondition(condition, message); }," +
                 "log: function(message) { __client.log(message); }," +
                 "markdown: function(content) { __client.markdown(content); }," +
-                "global: __client.global," +
-                "variables: { global: __client.global }," +
+                "global: __client.getGlobal()," +
+                "variables: { global: __client.getGlobal() }," +
                 "sqlQuery: function(sql) { return __sqlQuery(sql); }" +
                 "};" +
                 "var jsonPath = function(json, path) { return __jsonPath.apply(json, path); };");

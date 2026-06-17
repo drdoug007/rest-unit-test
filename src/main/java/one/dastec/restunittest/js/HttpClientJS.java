@@ -69,5 +69,9 @@ public class HttpClientJS {
         public Object get(String name) {
             return map.get(name);
         }
+
+        public Map<String, Object> all() {
+            return map;
+        }
     }
 }
