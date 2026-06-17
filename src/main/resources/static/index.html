@@ -6,6 +6,9 @@
     <title>REST Unit Test Runner</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/http.min.js"></script>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -232,7 +235,8 @@
                 lastSource = await sourceResponse.text();
 
                 reportContent.innerHTML = marked.parse(lastMarkdown);
-                sourceContent.innerHTML = `<pre><code>${escapeHtml(lastSource)}</code></pre>`;
+                sourceContent.innerHTML = `<pre><code class="language-http">${escapeHtml(lastSource)}</code></pre>`;
+                hljs.highlightElement(sourceContent.querySelector('code'));
                 
                 exportBtn.style.display = 'block';
                 sourceBtn.style.display = 'block';
@@ -252,7 +256,8 @@
                 exportBtn.style.display = 'block';
                 isViewingSource = false;
             } else {
-                reportContent.innerHTML = `<pre><code>${escapeHtml(lastSource)}</code></pre>`;
+                reportContent.innerHTML = `<pre><code class="language-http">${escapeHtml(lastSource)}</code></pre>`;
+                hljs.highlightElement(reportContent.querySelector('code'));
                 sourceBtn.textContent = 'View Report';
                 exportBtn.style.display = 'none';
                 isViewingSource = true;

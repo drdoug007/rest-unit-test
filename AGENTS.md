@@ -31,3 +31,4 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Improved the web UI by horizontally aligning action buttons using flex layout with consistent spacing.
 - Optimized the web UI for desktop by introducing a three-column layout that displays the source code panel alongside the test report.
 - Automatically fetch and display source code during test execution, removing the need for a separate "View Source" button on desktop.
+- Integrated `highlight.js` to provide syntax highlighting for the `.http` source code display.
