@@ -78,7 +78,7 @@ Accept: application/json
 %}
 
 ### Get car
-GET /api/car/{{carId}}
+GET {{baseUrl}}/api/car/{{carId}}
 Accept: application/json
 
 > {%

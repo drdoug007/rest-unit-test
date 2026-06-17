@@ -24,3 +24,4 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Configured JVM arguments to enable native access (`--enable-native-access=ALL-UNNAMED`) for both runtime and tests.
 - Refactored `cardealer.http` to use correct database schema (column names and foreign key relations).
 - Fixed `TypeError` in `cardealer.http` post-script by exposing `client.variables.global` as an alias for `client.global`.
+- Fixed `URI with undefined scheme` error by enforcing case-sensitive HTTP method matching in the parser, preventing titles like "Get car" from being misidentified as requests.

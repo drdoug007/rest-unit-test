@@ -140,7 +140,7 @@ public class RestTestService {
         boolean firstLineIsRequest = false;
         String[] firstLineParts = firstLine.split("\\s+");
         if (firstLineParts.length >= 2 && firstLineParts.length <= 3) {
-            firstLineIsRequest = firstLineParts[0].matches("(?i)^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)$");
+            firstLineIsRequest = firstLineParts[0].matches("^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)$");
         }
         
         test.setName(firstLine);
@@ -208,7 +208,7 @@ public class RestTestService {
                 }
                 if (method == null) {
                     String[] parts = trimmedLine.split("\\s+");
-                    if (parts.length >= 2 && parts[0].matches("(?i)^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)$")) {
+                    if (parts.length >= 2 && parts[0].matches("^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)$")) {
                         method = parts[0];
                         url = parts[1];
                     }
