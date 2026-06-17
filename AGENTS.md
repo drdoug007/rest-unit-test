@@ -32,3 +32,6 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Optimized the web UI for desktop by introducing a three-column layout that displays the source code panel alongside the test report.
 - Automatically fetch and display source code during test execution, removing the need for a separate "View Source" button on desktop.
 - Integrated `highlight.js` to provide syntax highlighting for the `.http` source code display.
+- Fixed syntax highlighting to ensure it is correctly applied to both the source code panel and Markdown report content.
+- Improved syntax highlighting robustness by using `setTimeout` for deferred execution and adding defensive checks for the `hljs` library.
+- Fixed syntax highlighting in Markdown reports to default to HTTP language for better visibility of headers and response data.

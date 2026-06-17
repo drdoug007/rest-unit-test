@@ -121,6 +121,11 @@
             border-radius: 4px;
             border: 1px solid #e9ecef;
             overflow-x: auto;
+            color: inherit;
+        }
+        pre code.hljs {
+            background: transparent;
+            padding: 0;
         }
         .loading {
             font-style: italic;
@@ -193,6 +198,24 @@
         let lastMarkdown = '';
         let lastSource = '';
 
+        // Configure marked to use highlight.js
+        if (typeof hljs !== 'undefined') {
+            marked.setOptions({
+                highlight: function(code, lang) {
+                    try {
+                        const language = hljs.getLanguage(lang) ? lang : 'http';
+                        return hljs.highlight(code, { language }).value;
+                    } catch (e) {
+                        console.error('Highlight error:', e);
+                        return code;
+                    }
+                },
+                langPrefix: 'hljs language-'
+            });
+        } else {
+            console.error('highlight.js not loaded!');
+        }
+
         async function fetchTests() {
             try {
                 const response = await fetch('/api/tests');
@@ -236,7 +259,32 @@
 
                 reportContent.innerHTML = marked.parse(lastMarkdown);
                 sourceContent.innerHTML = `<pre><code class="language-http">${escapeHtml(lastSource)}</code></pre>`;
-                hljs.highlightElement(sourceContent.querySelector('code'));
+                
+                // TODO: Fix highlighting not being applied correctly.
+                // Even though hljs.highlightElement is called, the UI does not show the expected colors.
+                // Investigating if it's a CSS conflict or a timing issue with the library loading.
+            
+                // Use setTimeout to ensure DOM is updated before highlighting
+                setTimeout(() => {
+                    if (typeof hljs === 'undefined') {
+                        console.error('highlight.js not available for highlighting');
+                        return;
+                    }
+                    // Ensure highlighting is applied to the source panel
+                    const sourceCode = sourceContent.querySelector('code');
+                    if (sourceCode) {
+                        try {
+                            hljs.highlightElement(sourceCode);
+                        } catch (e) { console.error('Error highlighting source panel:', e); }
+                    }
+                    
+                    // Also highlight any code blocks in the report
+                    reportContent.querySelectorAll('pre code').forEach((block) => {
+                        try {
+                            hljs.highlightElement(block);
+                        } catch (e) { console.error('Error highlighting report block:', e); }
+                    });
+                }, 0);
                 
                 exportBtn.style.display = 'block';
                 sourceBtn.style.display = 'block';
@@ -257,7 +305,16 @@
                 isViewingSource = false;
             } else {
                 reportContent.innerHTML = `<pre><code class="language-http">${escapeHtml(lastSource)}</code></pre>`;
-                hljs.highlightElement(reportContent.querySelector('code'));
+                setTimeout(() => {
+                    if (typeof hljs !== 'undefined') {
+                        const reportCode = reportContent.querySelector('code');
+                        if (reportCode) {
+                            try {
+                                hljs.highlightElement(reportCode);
+                            } catch (e) { console.error('Error highlighting toggled source:', e); }
+                        }
+                    }
+                }, 0);
                 sourceBtn.textContent = 'View Report';
                 exportBtn.style.display = 'none';
                 isViewingSource = true;
