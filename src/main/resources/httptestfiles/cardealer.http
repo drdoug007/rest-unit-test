@@ -38,10 +38,10 @@ Accept:  application/json
 
 %}
 
-###
+### Adding car to dealer
 < {%
     markdowner.heading(3, "Before: TABLE: CAR");
-    const result = client.sqlQuery("SELECT id, name, model, color, price FROM car where car.dealer = 1");
+    const result = client.sqlQuery("SELECT id, make, model, color, price FROM car WHERE dealer_id = 1");
     markdowner.table(result.columns, result.data);
 %}
 POST {{baseUrl}}/api/cardealer/1/car
