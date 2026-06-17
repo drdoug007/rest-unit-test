@@ -29,8 +29,16 @@ public class HttpClientJS {
         markdownEntries.add(content);
     }
 
-    public void assertCondition(boolean condition, String message) {
-        if (!condition) {
+    public void assertCondition(Object condition, String message) {
+        boolean boolCondition = false;
+        if (condition instanceof Boolean) {
+            boolCondition = (Boolean) condition;
+        } else if (condition != null) {
+            // Truthy check for non-null objects if they are not Boolean
+            boolCondition = true;
+        }
+        
+        if (!boolCondition) {
             throw new RuntimeException(message);
         }
     }

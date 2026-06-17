@@ -39,8 +39,6 @@ Accept:  application/json
 %}
 
 ###
-
-###
 < {%
     markdowner.heading(3, "Before: TABLE: CAR");
     const result = client.sqlQuery("SELECT id, name, model, color, price FROM car where car.dealer = 1");
@@ -60,12 +58,12 @@ Accept: application/json
 
 > {%
     client.test("Request executed successfully", function () {
-        client.assert(response.status === 200, "Response status is not 200");
+        client.assert(response.status === 201, "Response status is not 201");
     });
 
     client.test("Response includes ID", function () {
-        const carDealers = jsonPath(response.body.id, "$");
-        client.assert(carDealers, "Response did not contain ID")
+        const id = jsonPath(response.body, "$.id");
+        client.assert(id, "Response did not contain ID")
     });
 
 
