@@ -23,3 +23,4 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Enhanced variable resolution to correctly handle `{{baseUrl}}` even when not explicitly defined in properties.
 - Configured JVM arguments to enable native access (`--enable-native-access=ALL-UNNAMED`) for both runtime and tests.
 - Refactored `cardealer.http` to use correct database schema (column names and foreign key relations).
+- Fixed `TypeError` in `cardealer.http` post-script by exposing `client.variables.global` as an alias for `client.global`.

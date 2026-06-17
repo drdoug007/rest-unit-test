@@ -400,6 +400,7 @@ public class RestTestService {
                 "log: function(message) { __client.log(message); }," +
                 "markdown: function(content) { __client.markdown(content); }," +
                 "global: __client.global," +
+                "variables: { global: __client.global }," +
                 "sqlQuery: function(sql) { return __sqlQuery(sql); }" +
                 "};" +
                 "var jsonPath = function(json, path) { return __jsonPath.apply(json, path); };");
