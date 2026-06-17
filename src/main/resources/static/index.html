@@ -509,7 +509,7 @@
                 sourceContent.style.display = 'block';
                 runCustomBtn.style.display = 'none';
                 saveCustomBtn.style.display = 'none';
-                cloneBtn.textContent = 'Clone';
+                cloneBtn.textContent = isCustomTest ? 'Edit' : 'Clone';
             } catch (error) {
                 reportContent.innerHTML = `<p style="color: red">Error running test: ${error.message}</p>`;
             }
@@ -570,7 +570,7 @@
                 sourceEditor.style.display = 'none';
                 runCustomBtn.style.display = 'none';
                 saveCustomBtn.style.display = 'none';
-                cloneBtn.textContent = 'Clone';
+                cloneBtn.textContent = isCustomTest ? 'Edit' : 'Clone';
             }
         };
 
@@ -591,7 +591,7 @@
                     sourceEditor.style.display = 'none';
                     runCustomBtn.style.display = 'none';
                     saveCustomBtn.style.display = 'none';
-                    cloneBtn.textContent = 'Clone';
+                    cloneBtn.textContent = isCustomTest ? 'Edit' : 'Clone';
                     // Re-highlight
                     setTimeout(() => {
                         if (typeof hljs !== 'undefined') {
@@ -610,7 +610,7 @@
                 sourceEditor.style.display = 'none';
                 runCustomBtn.style.display = 'none';
                 saveCustomBtn.style.display = 'none';
-                cloneBtn.textContent = 'Clone';
+                cloneBtn.textContent = isCustomTest ? 'Edit' : 'Clone';
                 // Re-highlight
                 setTimeout(() => {
                     if (typeof hljs !== 'undefined') {
@@ -676,7 +676,7 @@
                 sourceEditor.style.display = 'none';
                 runCustomBtn.style.display = 'none';
                 saveCustomBtn.style.display = 'none';
-                cloneBtn.textContent = 'Clone';
+                cloneBtn.textContent = isCustomTest ? 'Edit' : 'Clone';
                 
             } catch (error) {
                 reportContent.innerHTML = `<p style="color: red">Error running custom test: ${error.message}</p>`;

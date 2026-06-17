@@ -45,3 +45,4 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Integrated custom tests into the sidebar with a management dropdown for renaming and deletion.
 - Enhanced the test runner to seamlessly handle both server-side and browser-stored custom tests.
 - Added a "Save" button to the source editor to allow persisting changes to custom `.http` tests without executing them.
+- Updated the "Clone" button to be labeled "Edit" when viewing or editing custom `.http` tests.

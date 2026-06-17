@@ -15,9 +15,6 @@ public class GraalJsService implements AutoCloseable {
         this.context = Context.newBuilder("js")
                 .allowHostAccess(HostAccess.ALL)
                 .build();
-
-        // Simple JS evaluation
-        this.context.eval("js", "console.log('Hello from GraalJS!');");
     }
 
     public Value executeScript(String script) {
