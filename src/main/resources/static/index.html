@@ -118,12 +118,66 @@
             border-bottom: 1px solid #eee;
             cursor: pointer;
             transition: background 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
         }
         li:hover { background-color: #e9ecef; }
         li.active {
             background-color: #007bff;
             color: white;
             border-radius: 4px;
+        }
+        .test-name {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .custom-tag {
+            font-size: 10px;
+            background: #ffc107;
+            color: #000;
+            padding: 2px 4px;
+            border-radius: 3px;
+            margin-right: 5px;
+        }
+        .dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .dropbtn {
+            background: none;
+            border: none;
+            color: inherit;
+            cursor: pointer;
+            padding: 0 5px;
+            font-weight: bold;
+        }
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            right: 0;
+            background-color: white;
+            min-width: 120px;
+            box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+            z-index: 1000;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .dropdown-content a {
+            color: #333;
+            padding: 8px 12px;
+            text-decoration: none;
+            display: block;
+            font-size: 13px;
+        }
+        .dropdown-content a:hover {
+            background-color: #f1f1f1;
+        }
+        .show {
+            display: block;
         }
         #report-content {
             overflow-x: auto;
@@ -230,6 +284,7 @@
                 Source Code
                 <div>
                     <button id="clone-btn" class="btn-clone" style="display: none;">Clone</button>
+                    <button id="save-custom-btn" class="btn-run" style="display: none; background-color: #007bff;">Save</button>
                     <button id="run-custom-btn" class="btn-run" style="display: none;">Run</button>
                 </div>
             </h3>
@@ -247,13 +302,36 @@
         const exportBtn = document.getElementById('export-btn');
         const sourceBtn = document.getElementById('source-btn');
         const cloneBtn = document.getElementById('clone-btn');
+        const saveCustomBtn = document.getElementById('save-custom-btn');
         const runCustomBtn = document.getElementById('run-custom-btn');
         const sourceEditor = document.getElementById('source-editor');
         let currentTestName = '';
+        let isCustomTest = false;
         let isViewingSource = false;
         let isEditing = false;
         let lastMarkdown = '';
         let lastSource = '';
+
+        // Local Storage Helpers
+        const STORAGE_KEY = 'custom_http_tests';
+
+        function getCustomTests() {
+            const stored = localStorage.getItem(STORAGE_KEY);
+            return stored ? JSON.parse(stored) : {};
+        }
+
+        function saveCustomTest(name, content) {
+            const tests = getCustomTests();
+            tests[name] = content;
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(tests));
+        }
+
+        function deleteCustomTest(name) {
+            const tests = getCustomTests();
+            delete tests[name];
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(tests));
+            fetchTests();
+        }
 
         // Configure marked to use highlight.js
         if (typeof hljs !== 'undefined') {
@@ -276,22 +354,95 @@
         async function fetchTests() {
             try {
                 const response = await fetch('/api/tests');
-                const tests = await response.json();
+                const serverTests = await response.json();
+                const customTests = getCustomTests();
+                
                 testList.innerHTML = '';
-                tests.forEach(test => {
-                    const li = document.createElement('li');
-                    li.textContent = test;
-                    li.onclick = () => runTest(test, li);
-                    testList.appendChild(li);
+                
+                // Render Server Tests
+                serverTests.forEach(test => {
+                    renderTestItem(test, false);
                 });
+
+                // Render Custom Tests
+                Object.keys(customTests).forEach(test => {
+                    renderTestItem(test, true);
+                });
+
             } catch (error) {
                 testList.innerHTML = '<li style="color: red">Error loading tests</li>';
                 console.error('Error:', error);
             }
         }
 
-        async function runTest(testName, element) {
+        function renderTestItem(name, isCustom) {
+            const li = document.createElement('li');
+            li.setAttribute('data-name', name);
+            if (currentTestName === name && isCustom === isCustomTest) li.classList.add('active');
+            
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'test-name';
+            if (isCustom) {
+                const tag = document.createElement('span');
+                tag.className = 'custom-tag';
+                tag.textContent = 'Custom';
+                nameSpan.appendChild(tag);
+            }
+            nameSpan.appendChild(document.createTextNode(name));
+            nameSpan.onclick = () => runTest(name, li, isCustom);
+            
+            li.appendChild(nameSpan);
+
+            if (isCustom) {
+                const dropdown = document.createElement('div');
+                dropdown.className = 'dropdown';
+                dropdown.innerHTML = `
+                    <button class="dropbtn">⋮</button>
+                    <div class="dropdown-content">
+                        <a href="#" onclick="deleteCustomTest('${name}')">Delete</a>
+                        <a href="#" onclick="renameCustomTest('${name}')">Rename</a>
+                    </div>
+                `;
+                const dropbtn = dropdown.querySelector('.dropbtn');
+                dropbtn.onclick = (e) => {
+                    e.stopPropagation();
+                    document.querySelectorAll('.dropdown-content').forEach(d => {
+                        if (d !== dropdown.querySelector('.dropdown-content')) d.classList.remove('show');
+                    });
+                    dropdown.querySelector('.dropdown-content').classList.toggle('show');
+                };
+                li.appendChild(dropdown);
+            }
+
+            testList.appendChild(li);
+        }
+
+        function renameCustomTest(oldName) {
+            const newName = prompt('Enter new name for the test:', oldName);
+            if (newName && newName !== oldName) {
+                const tests = getCustomTests();
+                if (tests[newName]) {
+                    alert('A test with this name already exists.');
+                    return;
+                }
+                tests[newName] = tests[oldName];
+                delete tests[oldName];
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(tests));
+                if (currentTestName === oldName) currentTestName = newName;
+                fetchTests();
+            }
+        }
+
+        // Close dropdowns when clicking outside
+        window.onclick = function(event) {
+            if (!event.target.matches('.dropbtn')) {
+                document.querySelectorAll('.dropdown-content').forEach(d => d.classList.remove('show'));
+            }
+        };
+
+        async function runTest(testName, element, isCustom = false) {
             currentTestName = testName;
+            isCustomTest = isCustom;
             isViewingSource = false;
             sourceBtn.textContent = 'View Source';
             // Update UI state
@@ -304,12 +455,19 @@
             sourceBtn.style.display = 'none';
 
             try {
-                // Run test
-                const testPromise = fetch(`/api/runtest/${testName}`);
-                // Fetch source in parallel
-                const sourcePromise = fetch(`/api/test/${testName}`);
-
-                const [testResponse, sourceResponse] = await Promise.all([testPromise, sourcePromise]);
+                let testResponse, sourceResponse;
+                if (isCustom) {
+                    const content = getCustomTests()[testName];
+                    testResponse = await fetch('/api/runtest/custom', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain; charset=UTF-8' },
+                        body: content
+                    });
+                    sourceResponse = { text: async () => content };
+                } else {
+                    testResponse = await fetch(`/api/runtest/${testName}`);
+                    sourceResponse = await fetch(`/api/test/${testName}`);
+                }
                 
                 lastMarkdown = await testResponse.text();
                 lastSource = await sourceResponse.text();
@@ -350,6 +508,7 @@
                 sourceEditor.style.display = 'none';
                 sourceContent.style.display = 'block';
                 runCustomBtn.style.display = 'none';
+                saveCustomBtn.style.display = 'none';
                 cloneBtn.textContent = 'Clone';
             } catch (error) {
                 reportContent.innerHTML = `<p style="color: red">Error running test: ${error.message}</p>`;
@@ -403,13 +562,62 @@
                 sourceContent.style.display = 'none';
                 sourceEditor.style.display = 'block';
                 runCustomBtn.style.display = 'inline-block';
+                saveCustomBtn.style.display = 'inline-block';
                 cloneBtn.textContent = 'Cancel';
             } else {
                 isEditing = false;
                 sourceContent.style.display = 'block';
                 sourceEditor.style.display = 'none';
                 runCustomBtn.style.display = 'none';
+                saveCustomBtn.style.display = 'none';
                 cloneBtn.textContent = 'Clone';
+            }
+        };
+
+        saveCustomBtn.onclick = () => {
+            const editedCode = sourceEditor.value;
+            if (!isCustomTest) {
+                const saveName = prompt('Enter a name for this custom test:', currentTestName + ' (Clone)');
+                if (saveName) {
+                    saveCustomTest(saveName, editedCode);
+                    currentTestName = saveName;
+                    isCustomTest = true;
+                    lastSource = editedCode;
+                    sourceContent.innerHTML = `<pre><code class="language-http">${escapeHtml(lastSource)}</code></pre>`;
+                    fetchTests();
+                    // Exit edit mode after save
+                    isEditing = false;
+                    sourceContent.style.display = 'block';
+                    sourceEditor.style.display = 'none';
+                    runCustomBtn.style.display = 'none';
+                    saveCustomBtn.style.display = 'none';
+                    cloneBtn.textContent = 'Clone';
+                    // Re-highlight
+                    setTimeout(() => {
+                        if (typeof hljs !== 'undefined') {
+                            const sourceCode = sourceContent.querySelector('code');
+                            if (sourceCode) hljs.highlightElement(sourceCode);
+                        }
+                    }, 0);
+                }
+            } else {
+                saveCustomTest(currentTestName, editedCode);
+                lastSource = editedCode;
+                sourceContent.innerHTML = `<pre><code class="language-http">${escapeHtml(lastSource)}</code></pre>`;
+                // Exit edit mode after save
+                isEditing = false;
+                sourceContent.style.display = 'block';
+                sourceEditor.style.display = 'none';
+                runCustomBtn.style.display = 'none';
+                saveCustomBtn.style.display = 'none';
+                cloneBtn.textContent = 'Clone';
+                // Re-highlight
+                setTimeout(() => {
+                    if (typeof hljs !== 'undefined') {
+                        const sourceCode = sourceContent.querySelector('code');
+                        if (sourceCode) hljs.highlightElement(sourceCode);
+                    }
+                }, 0);
             }
         };
 
@@ -428,6 +636,21 @@
 
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                // If it was a cloned test (not yet saved as custom) or an update to an existing custom test
+                if (!isCustomTest) {
+                    const saveName = prompt('Enter a name for this custom test:', currentTestName + ' (Clone)');
+                    if (saveName) {
+                        saveCustomTest(saveName, editedCode);
+                        currentTestName = saveName;
+                        isCustomTest = true;
+                        fetchTests();
+                    }
+                } else {
+                    // Update existing custom test
+                    saveCustomTest(currentTestName, editedCode);
+                    // No need to fetchTests, but update lastSource to reflect the changes in the source panel
                 }
 
                 lastMarkdown = await response.text();
@@ -452,6 +675,7 @@
                 sourceContent.style.display = 'block';
                 sourceEditor.style.display = 'none';
                 runCustomBtn.style.display = 'none';
+                saveCustomBtn.style.display = 'none';
                 cloneBtn.textContent = 'Clone';
                 
             } catch (error) {

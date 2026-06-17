@@ -41,3 +41,7 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Improved the web UI layout to be full-height on desktop, with scrollable sidebar, report, and source panels.
 - Optimized the "Clone" editor to vertically fill the available space in the source panel.
 - Fixed the source editor textarea to correctly fill all available vertical space on desktop.
+- Implemented `LocalStorage` persistence for custom `.http` tests, allowing users to save, retrieve, update, and delete their own tests.
+- Integrated custom tests into the sidebar with a management dropdown for renaming and deletion.
+- Enhanced the test runner to seamlessly handle both server-side and browser-stored custom tests.
+- Added a "Save" button to the source editor to allow persisting changes to custom `.http` tests without executing them.
