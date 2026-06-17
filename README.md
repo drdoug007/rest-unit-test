@@ -24,7 +24,7 @@ A Spring Boot-based framework for executing HTTP-based unit tests with integrate
 
 ### Configuration
 
-Update `src/main/resources/application.yaml` with your database connection details. These properties are also exposed as global variables (e.g., `environment`, `app`) in the JavaScript test context.
+Sensitive database connection details should be stored in `src/main/resources/application-local.yaml`, which is ignored by version control. You can use `application.yaml` for default configurations and environment variable placeholders.
 
 ### Running Tests
 

@@ -26,3 +26,4 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Fixed `TypeError` in `cardealer.http` post-script by exposing `client.variables.global` as an alias for `client.global`.
 - Fixed `URI with undefined scheme` error by enforcing case-sensitive HTTP method matching in the parser, preventing titles like "Get car" from being misidentified as requests.
 - Updated documentation in `README.md` and `AGENTS.md` to reflect recent features, fixes, and architectural improvements.
+- Moved sensitive datasource credentials to `application-local.yaml` and added it to `.gitignore`.
