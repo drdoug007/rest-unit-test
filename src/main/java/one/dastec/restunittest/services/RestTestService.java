@@ -5,7 +5,6 @@ import one.dastec.restunittest.js.HttpClientJS;
 import one.dastec.restunittest.js.RequestJS;
 import one.dastec.restunittest.js.ResponseJS;
 import one.dastec.restunittest.models.HttpTest;
-import org.graalvm.polyglot.Value;
 import com.jayway.jsonpath.JsonPath;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +29,6 @@ import java.util.*;
 public class RestTestService {
 
     private static final Logger log = LoggerFactory.getLogger(RestTestService.class);
-    private final DataSource dataSource;
     private final JdbcTemplate jdbcTemplate;
     private final RestClient.Builder builder;
     private final GraalJsService graalJsService;
@@ -38,14 +36,14 @@ public class RestTestService {
 
 
     public RestTestService(DataSource dataSource, JdbcTemplate jdbcTemplate, RestClient.Builder builder, GraalJsService graalJsService, AppProperties appProperties) {
-        this.dataSource = dataSource;
         this.jdbcTemplate = jdbcTemplate;
         this.builder = builder;
         this.graalJsService = graalJsService;
         this.appProperties = appProperties;
     }
 
-    public String runTest(String testPath) {
+    public String runTest(String testName) {
+        var testPath = "httptestfiles/" + testName + ".http";
         Resource testFile;
         if (testPath.startsWith("/") || (testPath.length() > 1 && testPath.charAt(1) == ':')) {
             testFile = new FileSystemResource(testPath);
@@ -54,7 +52,7 @@ public class RestTestService {
         }
         if (!testFile.exists()) {
             log.error("Test not found: {}", testPath);
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,  "Test not found: " + testPath);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,  "Test not found: " + testName);
         }
         try {
             var content = testFile.getContentAsString(StandardCharsets.UTF_8);
@@ -63,7 +61,7 @@ public class RestTestService {
             if (appProperties != null && appProperties.getEnvironment() != null) {
                 report.append("Environment: ").append(appProperties.getEnvironment().getName()).append("\n\n");
             }
-            report.append("# Test Report: ").append(testPath).append("\n\n");
+            report.append("# Test Report: ").append(testName).append("\n\n");
 
             RequestJS requestJS = new RequestJS();
             HttpClientJS httpClientJS = new HttpClientJS();
@@ -87,7 +85,7 @@ public class RestTestService {
         // Load markdown.js helper into GraalJS context
         try {
             if (graalJsService.getContext().getBindings("js").getMember("Markdown") == null) {
-                ClassPathResource markdownResource = new ClassPathResource("httptestfiles/markdown.js");
+                ClassPathResource markdownResource = new ClassPathResource("js/markdown.js");
                 if (markdownResource.exists()) {
                     String markdownJs = markdownResource.getContentAsString(StandardCharsets.UTF_8);
                     // Strip exports for non-module GraalJS eval
@@ -202,7 +200,7 @@ public class RestTestService {
                 currentScript.append(line).append("\n");
             } else if (mode.equals("NONE")) {
                 if (trimmedLine.isEmpty()) {
-                    if (method != null && mode.equals("NONE")) {
+                    if (method != null) {
                         mode = "REQUEST_BODY";
                     }
                     continue;
@@ -311,7 +309,7 @@ public class RestTestService {
 
         } catch (Exception e) {
             report.append("❌ **Error during execution:** ").append(e.getMessage()).append("\n");
-            e.printStackTrace();
+            log.error("Error during execution", e);
         }
     }
 

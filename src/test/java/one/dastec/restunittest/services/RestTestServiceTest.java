@@ -72,7 +72,7 @@ public class RestTestServiceTest {
         when(rowSet.next()).thenReturn(true, false);
         when(rowSet.getObject("id")).thenReturn(123);
 
-        String result = restTestService.runTest("httptestfiles/test.http");
+        String result = restTestService.runTest("test");
         
         System.out.println(result);
         assertTrue(result.contains("# Test Report"));
@@ -94,7 +94,7 @@ public class RestTestServiceTest {
         when(rowSet.next()).thenReturn(true, false);
         when(rowSet.getObject("id")).thenReturn(456);
 
-        String result = restTestService.runTest("httptestfiles/extended_sql.http");
+        String result = restTestService.runTest("extended_sql");
 
         System.out.println(result);
         assertTrue(result.contains("✅ SQL result exists"), "Extended SQL test should pass");
@@ -113,7 +113,7 @@ public class RestTestServiceTest {
         when(rowSet.next()).thenReturn(true, false);
         when(rowSet.getObject("id")).thenReturn(789);
 
-        String result = restTestService.runTest("httptestfiles/new_sql_format.http");
+        String result = restTestService.runTest("new_sql_format");
 
         System.out.println(result);
         assertTrue(result.contains("✅ SQL result from new format"), "New SQL format test should pass");
@@ -135,7 +135,7 @@ public class RestTestServiceTest {
         when(rowSet.getObject("id")).thenReturn(1);
         when(rowSet.getObject("name")).thenReturn("Alice");
 
-        String result = restTestService.runTest("httptestfiles/sql_markdown.http");
+        String result = restTestService.runTest("sql_markdown");
 
         System.out.println(result);
         assertTrue(result.contains("✅ Table generated"), "SQL Markdown test should pass");

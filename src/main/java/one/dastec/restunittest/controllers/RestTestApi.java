@@ -35,7 +35,6 @@ public class RestTestApi {
 
     @GetMapping(path = "runtest/{testName}", produces = "text/markdown; charset=UTF-8")
     public String runTest(@PathVariable("testName") String testName) {
-        var testPath = "httptestfiles/" + testName + ".http";
-        return restTestService.runTest(testPath);
+        return restTestService.runTest(testName);
     }
 }
