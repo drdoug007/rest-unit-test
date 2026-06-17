@@ -9,6 +9,7 @@ import com.jayway.jsonpath.JsonPath;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -44,7 +45,12 @@ public class RestTestService {
     }
 
     public String runTest(String testPath) {
-        Resource testFile = new ClassPathResource(testPath);
+        Resource testFile;
+        if (testPath.startsWith("/") || (testPath.length() > 1 && testPath.charAt(1) == ':')) {
+            testFile = new FileSystemResource(testPath);
+        } else {
+            testFile = new ClassPathResource(testPath);
+        }
         if (!testFile.exists()) {
             log.error("Test not found: {}", testPath);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,  "Test not found: " + testPath);
@@ -353,13 +359,38 @@ public class RestTestService {
             }
         });
 
+        graalJsService.putMember("__sqlQuery", (java.util.function.Function<String, Map<String, Object>>) (sql) -> {
+            try {
+                List<Map<String, Object>> data = new ArrayList<>();
+                SqlRowSet rowSet = jdbcTemplate.queryForRowSet(sql);
+                SqlRowSetMetaData metaData = rowSet.getMetaData();
+                String[] columnNames = metaData.getColumnNames();
+
+                while (rowSet.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    for (String col : columnNames) {
+                        row.put(col, rowSet.getObject(col));
+                    }
+                    data.add(row);
+                }
+                
+                Map<String, Object> result = new HashMap<>();
+                result.put("data", data);
+                result.put("columns", columnNames);
+                return result;
+            } catch (Exception e) {
+                throw new RuntimeException("SQL execution error: " + e.getMessage(), e);
+            }
+        });
+
         // Map client.assert and other methods
         graalJsService.executeScript("var client = { " +
                 "test: function(name, callback) { __client.test(name, callback); }," +
                 "assert: function(condition, message) { __client.assertCondition(condition, message); }," +
                 "log: function(message) { __client.log(message); }," +
                 "markdown: function(content) { __client.markdown(content); }," +
-                "global: __client.global" +
+                "global: __client.global," +
+                "sqlQuery: function(sql) { return __sqlQuery(sql); }" +
                 "};" +
                 "var jsonPath = function(json, path) { return __jsonPath.apply(json, path); };");
     }

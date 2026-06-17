@@ -8,7 +8,7 @@ A Spring Boot-based framework for executing HTTP-based unit tests with integrate
 - **PDF Export**: Export generated test reports to PDF directly from the web interface.
 - **Sequential Execution**: Supports interleaved execution of SQL and JavaScript blocks before and after the HTTP request, preserving the order defined in the test file.
 - **HTTP Request Execution**: Supports standard HTTP methods (GET, POST, etc.) with variable resolution.
-- **SQL Verification**: Execute SQL queries against a database to verify state changes or fetch data for assertions.
+- **SQL Verification**: Execute SQL queries against a database via SQL blocks or directly from JavaScript using `client.sqlQuery(sql)`.
 - **JavaScript Assertions**: Use GraalJS to write powerful test logic and assertions in JavaScript.
 - **Markdown Reports**: Automatically generates detailed test reports in Markdown format with pretty-printed JSON.
 - **Custom Markdown Helper**: A `markdowner` helper available in JavaScript to add headings, tables, and code blocks directly to reports.
@@ -37,6 +37,17 @@ Example: `http://localhost:8099/api/runtest/cardealer`
 
 ## HTTP Test File Format
 
+### JavaScript SQL Execution (Recommended)
+You can execute SQL directly within JavaScript blocks:
+
+```http
+< {%
+    const result = client.sqlQuery("SELECT * FROM my_table");
+    markdowner.table(result.columns, result.data);
+%}
+```
+
+### Legacy SQL Blocks
 ```http
 # Pre-request blocks
 # < SQL
