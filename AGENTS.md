@@ -18,3 +18,8 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Formatted JSON response messages to be pretty-printed in the generated Markdown reports.
 - Integrated `client.sqlQuery(sql)` to allow executing database queries directly from JavaScript.
 - Ensured left-alignment of Markdown table column headers for better readability.
+- Improved HTTP parser robustness to strictly validate methods and header formats, preventing misidentification of script lines.
+- Fixed `TypeError` in `client.assert()` when handling null or undefined values from JavaScript.
+- Enhanced variable resolution to correctly handle `{{baseUrl}}` even when not explicitly defined in properties.
+- Configured JVM arguments to enable native access (`--enable-native-access=ALL-UNNAMED`) for both runtime and tests.
+- Refactored `cardealer.http` to use correct database schema (column names and foreign key relations).
