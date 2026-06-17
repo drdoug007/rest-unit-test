@@ -208,13 +208,17 @@ public class RestTestService {
                 }
                 if (method == null) {
                     String[] parts = trimmedLine.split("\\s+");
-                    if (parts.length >= 2) {
+                    if (parts.length >= 2 && parts[0].matches("(?i)^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)$")) {
                         method = parts[0];
                         url = parts[1];
                     }
-                } else if (trimmedLine.contains(":")) {
+                } else if (trimmedLine.contains(":") && !trimmedLine.startsWith("//") && !trimmedLine.startsWith("/*")) {
                     int colonIndex = trimmedLine.indexOf(":");
-                    headers.put(trimmedLine.substring(0, colonIndex).trim(), trimmedLine.substring(colonIndex + 1).trim());
+                    String headerName = trimmedLine.substring(0, colonIndex).trim();
+                    // Basic validation for header name (no spaces, etc.)
+                    if (!headerName.contains(" ") && !headerName.isEmpty()) {
+                        headers.put(headerName, trimmedLine.substring(colonIndex + 1).trim());
+                    }
                 }
             } else if (mode.equals("REQUEST_BODY")) {
                 body.append(line).append("\n");
@@ -250,7 +254,13 @@ public class RestTestService {
 
             // 2. Resolve variables
             String url = resolveVariables(test.getUrl(), requestJS.getVariables().all());
+            if (url == null || url.trim().isEmpty()) {
+                throw new RuntimeException("Request URL is missing. Check if the .http file has a valid request line (e.g., GET http://...)");
+            }
             String method = test.getMethod();
+            if (method == null || method.trim().isEmpty()) {
+                throw new RuntimeException("Request method is missing. Check if the .http file has a valid request line.");
+            }
             Map<String, String> headers = new HashMap<>();
             test.getHeaders().forEach((k, v) -> headers.put(k, resolveVariables(v, requestJS.getVariables().all())));
             String body = resolveVariables(test.getBody(), requestJS.getVariables().all());
