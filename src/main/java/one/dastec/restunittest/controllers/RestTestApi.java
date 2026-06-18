@@ -48,4 +48,9 @@ public class RestTestApi {
     public String runTestCustom(@RequestBody String content) {
         return restTestService.runTestWithContent("Custom Test", content);
     }
+
+    @GetMapping(path = "/fetch-external", produces = "text/plain; charset=UTF-8")
+    public String fetchExternal(@RequestParam("url") String url) {
+        return restTestService.fetchExternalUrl(url);
+    }
 }

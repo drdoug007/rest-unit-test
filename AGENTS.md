@@ -46,3 +46,11 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Enhanced the test runner to seamlessly handle both server-side and browser-stored custom tests.
 - Added a "Save" button to the source editor to allow persisting changes to custom `.http` tests without executing them.
 - Updated the "Clone" button to be labeled "Edit" when viewing or editing custom `.http` tests.
+- Added a "+ New" button to the sidebar to allow creating new custom `.http` test files directly in the browser.
+- Implemented OpenAPI 3 (YAML/JSON) import capability to automatically generate `.http` test files with basic assertions.
+- Ensured OpenAPI import robustly handles both YAML and JSON formats with case-insensitive file extension checks.
+- Extended OpenAPI import to support fetching specifications from a URL and pasting from the clipboard.
+- Added a "Run" button to the source panel to allow executing tests directly while viewing the code.
+- Prevented automatic test execution when selecting a test from the sidebar.
+- Ensured consistent button sizes across the web UI.
+- Refactored `index.html` by moving CSS and JavaScript into external files (`styles.css` and `scripts.js`).

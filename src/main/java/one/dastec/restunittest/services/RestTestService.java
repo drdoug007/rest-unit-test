@@ -66,6 +66,18 @@ public class RestTestService {
         return runTestWithContent(testName, content);
     }
 
+    public String fetchExternalUrl(String url) {
+        try {
+            return builder.build().get()
+                    .uri(url)
+                    .retrieve()
+                    .body(String.class);
+        } catch (Exception e) {
+            log.error("Error fetching external URL {}: {}", url, e.getMessage());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Error fetching URL: " + e.getMessage());
+        }
+    }
+
     public String runTestWithContent(String testName, String content) {
         try {
             List<HttpTest> tests = parseHttpFile(content);
@@ -248,6 +260,7 @@ public class RestTestService {
     }
 
     private void executeTest(HttpTest test, RequestJS requestJS, HttpClientJS httpClientJS, StringBuilder report) {
+        String testUrl = test.getUrl();
         try {
             // 1. Pre-actions (JS and SQL in order)
             for (HttpTest.PreAction action : test.getPreActions()) {
@@ -313,8 +326,10 @@ public class RestTestService {
             if (test.getPostScript() != null && !test.getPostScript().isEmpty()) {
                 setupGraalJsContext(requestJS, httpClientJS, responseJS);
                 try {
+                    log.info("Executing post-script for test: {}", testUrl);
                     graalJsService.executeScript("(function() {\n" + test.getPostScript() + "\n})()");
                 } catch (Exception e) {
+                    log.error("Error in post-script for test {}: {}", testUrl, e.getMessage());
                     report.append("❌ **Error in post-script:** ").append(e.getMessage()).append("\n");
                 }
                 appendResults(httpClientJS, report);
