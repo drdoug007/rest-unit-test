@@ -1,5 +1,6 @@
 package one.dastec.restunittest.controllers;
 
+import one.dastec.restunittest.models.CustomTestRequest;
 import one.dastec.restunittest.services.RestTestService;
 import org.springframework.web.bind.annotation.*;
 
@@ -45,8 +46,8 @@ public class RestTestApi {
     }
 
     @PostMapping(path = "runtest/custom", produces = "text/markdown; charset=UTF-8")
-    public String runTestCustom(@RequestBody String content) {
-        return restTestService.runTestWithContent("Custom Test", content);
+    public String runTestCustom(@RequestBody CustomTestRequest request) {
+        return restTestService.runTestWithContent(request.getName(), request.getContent(), request.getGlobals());
     }
 
     @GetMapping(path = "/fetch-external", produces = "text/plain; charset=UTF-8")

@@ -160,4 +160,14 @@ public class RestTestServiceTest {
         assertTrue(result.contains("# Test Report: Custom Test"));
         assertTrue(result.contains("## Custom Test"));
     }
+    @Test
+    void testRunTestWithGlobals() {
+        String content = "GET {{baseUrl}}/api/test\nAuthorization: Bearer {{token}}";
+        Map<String, Object> globals = new HashMap<>();
+        globals.put("token", "my-secret-token");
+        
+        String report = restTestService.runTestWithContent("Test with Globals", content, globals);
+        
+        assertTrue(report.contains("Test Report: Test with Globals"));
+    }
 }

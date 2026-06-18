@@ -79,6 +79,10 @@ public class RestTestService {
     }
 
     public String runTestWithContent(String testName, String content) {
+        return runTestWithContent(testName, content, null);
+    }
+
+    public String runTestWithContent(String testName, String content, Map<String, Object> globals) {
         try {
             List<HttpTest> tests = parseHttpFile(content);
             StringBuilder report = new StringBuilder();
@@ -106,6 +110,16 @@ public class RestTestService {
                 graalJsService.putMember("app", appProperties);
             }
 
+            // Load incoming globals if provided
+            if (globals != null) {
+                globals.forEach((k, v) -> {
+                    if (v != null) {
+                        requestJS.getVariables().set(k, v);
+                        httpClientJS.getGlobal().set(k, v);
+                    }
+                });
+            }
+
         // Load markdown.js helper into GraalJS context
         try {
             if (graalJsService.getContext().getBindings("js").getMember("Markdown") == null) {
@@ -125,6 +139,13 @@ public class RestTestService {
                 report.append("## ").append(test.getName()).append("\n\n");
                 executeTest(test, requestJS, httpClientJS, report);
                 report.append("\n---\n\n");
+                
+                // Propagate global variables back to requestJS for the next test in the same session
+                httpClientJS.getGlobal().all().forEach((k, v) -> {
+                    if (v != null) {
+                        requestJS.getVariables().set(k, v);
+                    }
+                });
             }
 
             return report.toString();
@@ -274,8 +295,22 @@ public class RestTestService {
                         report.append("❌ **Error in pre-script:** ").append(e.getMessage()).append("\n");
                     }
                     appendResults(httpClientJS, report);
+                    
+                    // Sync global variables set in pre-script back to requestJS
+                    httpClientJS.getGlobal().all().forEach((k, v) -> {
+                        if (v != null) {
+                            requestJS.getVariables().set(k, v);
+                        }
+                    });
                 }
             }
+
+            // Sync global variables to requestJS before resolving variables for the request
+            httpClientJS.getGlobal().all().forEach((k, v) -> {
+                if (v != null) {
+                    requestJS.getVariables().set(k, v);
+                }
+            });
 
             // 2. Resolve variables
             Map<String, Object> allVars = new HashMap<>(requestJS.getVariables().all());
@@ -284,7 +319,6 @@ public class RestTestService {
                     allVars.put(k, v);
                 }
             });
-            
 
             String url = resolveVariables(test.getUrl(), allVars);
             if (url == null || url.trim().isEmpty()) {
@@ -295,7 +329,9 @@ public class RestTestService {
                 throw new RuntimeException("Request method is missing. Check if the .http file has a valid request line.");
             }
             Map<String, String> headers = new HashMap<>();
-            test.getHeaders().forEach((k, v) -> headers.put(k, resolveVariables(v, allVars)));
+            test.getHeaders().forEach((k, v) -> {
+                headers.put(k, resolveVariables(v, allVars));
+            });
             String body = resolveVariables(test.getBody(), allVars);
 
             report.append("**Request:** `").append(method).append(" ").append(url).append("`\n\n");
@@ -333,6 +369,13 @@ public class RestTestService {
                     report.append("❌ **Error in post-script:** ").append(e.getMessage()).append("\n");
                 }
                 appendResults(httpClientJS, report);
+                
+                // Propagate global variables back to requestJS after post-script
+                httpClientJS.getGlobal().all().forEach((k, v) -> {
+                    if (v != null) {
+                        requestJS.getVariables().set(k, v);
+                    }
+                });
             }
 
         } catch (Exception e) {
@@ -434,8 +477,18 @@ public class RestTestService {
                 "assert: function(condition, message) { __client.assertCondition(condition, message); }," +
                 "log: function(message) { __client.log(message); }," +
                 "markdown: function(content) { __client.markdown(content); }," +
-                "global: __client.getGlobal()," +
-                "variables: { global: __client.getGlobal() }," +
+                "global: { " +
+                "  set: function(name, value) { __client.getGlobal().set(name, value); }," +
+                "  get: function(name) { return __client.getGlobal().get(name); }," +
+                "  all: function() { return __client.getGlobal().all(); }" +
+                "}," +
+                "variables: { " +
+                "  global: { " +
+                "    set: function(name, value) { __client.getGlobal().set(name, value); }," +
+                "    get: function(name) { return __client.getGlobal().get(name); }," +
+                "    all: function() { return __client.getGlobal().all(); }" +
+                "  }" +
+                "}," +
                 "sqlQuery: function(sql) { return __sqlQuery(sql); }" +
                 "};" +
                 "var jsonPath = function(json, path) { return __jsonPath.apply(json, path); };");

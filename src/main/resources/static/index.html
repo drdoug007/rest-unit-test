@@ -23,6 +23,34 @@
     </header>
 
     <div class="container">
+        <!-- Modal for Global Variables -->
+        <div id="globals-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Global Variables for <span id="globals-test-name"></span></h2>
+                    <span class="close-modal">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <table id="globals-table" class="globals-table">
+                        <thead>
+                            <tr>
+                                <th>Key</th>
+                                <th>Value</th>
+                                <th style="width: 40px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="globals-tbody">
+                            <!-- Rows will be added here -->
+                        </tbody>
+                    </table>
+                    <button id="add-global-row-btn" class="btn-clone" style="margin-top: 10px; background-color: var(--success-color); width: 100%;">+ Add Variable</button>
+                </div>
+                <div class="modal-footer">
+                    <button id="save-globals-btn" class="btn-run" style="background-color: var(--primary-color);">Save Globals</button>
+                </div>
+            </div>
+        </div>
+
         <div class="sidebar">
             <h3>
                 Available Tests
@@ -51,6 +79,7 @@
                 Source Code
                 <div>
                     <button id="clone-btn" class="btn-clone" style="display: none;">Clone</button>
+                    <button id="globals-btn" class="btn-clone" style="display: none; background-color: var(--secondary-color);">Globals</button>
                     <button id="run-view-btn" class="btn-run" style="display: none; background-color: #28a745;">Run</button>
                     <button id="save-custom-btn" class="btn-run" style="display: none; background-color: #007bff;">Save</button>
                     <button id="run-custom-btn" class="btn-run" style="display: none;">Run</button>

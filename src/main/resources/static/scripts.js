@@ -7,6 +7,7 @@ const cloneBtn = document.getElementById('clone-btn');
 const runViewBtn = document.getElementById('run-view-btn');
 const saveCustomBtn = document.getElementById('save-custom-btn');
 const runCustomBtn = document.getElementById('run-custom-btn');
+const globalsBtn = document.getElementById('globals-btn');
 const addTestBtn = document.getElementById('add-test-btn');
 const importOpenApiBtn = document.getElementById('import-openapi-btn');
 const importOptions = document.getElementById('import-options');
@@ -15,18 +16,34 @@ const importUrlBtn = document.getElementById('import-url-btn');
 const importPasteBtn = document.getElementById('import-paste-btn');
 const openapiFileInput = document.getElementById('openapi-file-input');
 const sourceEditor = document.getElementById('source-editor');
+
+// Globals Modal Elements
+const globalsModal = document.getElementById('globals-modal');
+const globalsTestName = document.getElementById('globals-test-name');
+const globalsTbody = document.getElementById('globals-tbody');
+const addGlobalRowBtn = document.getElementById('add-global-row-btn');
+const saveGlobalsBtn = document.getElementById('save-globals-btn');
+const closeModal = document.querySelector('.close-modal');
+
 let currentTestName = '';
 let isCustomTest = false;
 let isViewingSource = false;
 let isEditing = false;
 let lastMarkdown = '';
 let lastSource = '';
+let unsavedGlobals = null;
 
 // Local Storage Helpers
 const STORAGE_KEY = 'custom_http_tests';
+const GLOBALS_KEY = 'custom_http_globals';
 
 function getCustomTests() {
     const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : {};
+}
+
+function getCustomGlobals() {
+    const stored = localStorage.getItem(GLOBALS_KEY);
     return stored ? JSON.parse(stored) : {};
 }
 
@@ -36,10 +53,21 @@ function saveCustomTest(name, content) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tests));
 }
 
+function saveCustomGlobals(name, globals) {
+    const allGlobals = getCustomGlobals();
+    allGlobals[name] = globals;
+    localStorage.setItem(GLOBALS_KEY, JSON.stringify(allGlobals));
+}
+
 function deleteCustomTest(name) {
     const tests = getCustomTests();
     delete tests[name];
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tests));
+    
+    const allGlobals = getCustomGlobals();
+    delete allGlobals[name];
+    localStorage.setItem(GLOBALS_KEY, JSON.stringify(allGlobals));
+    
     fetchTests();
 }
 
@@ -111,6 +139,7 @@ function renderTestItem(name, isCustom) {
             <div class="dropdown-content">
                 <a href="#" onclick="deleteCustomTest('${name}')">Delete</a>
                 <a href="#" onclick="renameCustomTest('${name}')">Rename</a>
+                <a href="#" onclick="showGlobalsModal('${name}')">Globals</a>
             </div>
         `;
         const dropbtn = dropdown.querySelector('.dropbtn');
@@ -138,13 +167,82 @@ function renameCustomTest(oldName) {
         tests[newName] = tests[oldName];
         delete tests[oldName];
         localStorage.setItem(STORAGE_KEY, JSON.stringify(tests));
+        
+        const allGlobals = getCustomGlobals();
+        if (allGlobals[oldName]) {
+            allGlobals[newName] = allGlobals[oldName];
+            delete allGlobals[oldName];
+            localStorage.setItem(GLOBALS_KEY, JSON.stringify(allGlobals));
+        }
+
         if (currentTestName === oldName) currentTestName = newName;
         fetchTests();
     }
 }
 
 // Close dropdowns when clicking outside
+function showGlobalsModal(testName) {
+    currentTestName = testName;
+    globalsTestName.textContent = testName || 'Unsaved Test';
+    const globals = testName ? (getCustomGlobals()[testName] || {}) : (unsavedGlobals || {});
+    
+    globalsTbody.innerHTML = '';
+    Object.entries(globals).forEach(([key, value]) => {
+        addGlobalRow(key, value);
+    });
+    
+    if (Object.keys(globals).length === 0) {
+        addGlobalRow('', '');
+    }
+    
+    globalsModal.style.display = 'block';
+}
+
+function addGlobalRow(key = '', value = '') {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td style="padding: 8px;"><input type="text" class="global-key" value="${key}" placeholder="Key"></td>
+        <td style="padding: 8px;"><input type="text" class="global-value" value="${value}" placeholder="Value"></td>
+        <td style="padding: 8px; vertical-align: middle;"><button class="btn-delete-row" title="Delete Variable">&times;</button></td>
+    `;
+    tr.querySelector('.btn-delete-row').onclick = () => {
+        tr.remove();
+        if (globalsTbody.children.length === 0) {
+            addGlobalRow();
+        }
+    };
+    globalsTbody.appendChild(tr);
+}
+
+addGlobalRowBtn.onclick = () => addGlobalRow();
+
+saveGlobalsBtn.onclick = () => {
+    const globals = {};
+    globalsTbody.querySelectorAll('tr').forEach(tr => {
+        const key = tr.querySelector('.global-key').value.trim();
+        const value = tr.querySelector('.global-value').value.trim();
+        if (key) {
+            globals[key] = value;
+        }
+    });
+    if (currentTestName) {
+        saveCustomGlobals(currentTestName, globals);
+    } else {
+        unsavedGlobals = globals;
+    }
+    globalsModal.style.display = 'none';
+};
+
+globalsBtn.onclick = () => showGlobalsModal(currentTestName);
+
+closeModal.onclick = () => {
+    globalsModal.style.display = 'none';
+};
+
 window.onclick = function(event) {
+    if (event.target == globalsModal) {
+        globalsModal.style.display = 'none';
+    }
     if (!event.target.matches('.dropbtn')) {
         document.querySelectorAll('.dropdown-content').forEach(d => d.classList.remove('show'));
     }
@@ -163,6 +261,7 @@ async function selectTest(testName, element, isCustom = false) {
     sourceContent.innerHTML = `<p class="loading">Fetching source...</p>`;
     exportBtn.style.display = 'none';
     sourceBtn.style.display = 'none';
+    globalsBtn.style.display = 'none';
     cloneBtn.style.display = 'none';
     runViewBtn.style.display = 'none';
 
@@ -194,6 +293,7 @@ async function selectTest(testName, element, isCustom = false) {
         }, 0);
         
         sourceBtn.style.display = 'block';
+        globalsBtn.style.display = isCustom ? 'inline-block' : 'none';
         cloneBtn.style.display = 'inline-block';
         runViewBtn.style.display = 'inline-block';
         isEditing = false;
@@ -220,20 +320,31 @@ async function runTest(testName, element, isCustom = false) {
     sourceContent.innerHTML = `<p class="loading">Fetching source...</p>`;
     exportBtn.style.display = 'none';
     sourceBtn.style.display = 'none';
+    globalsBtn.style.display = 'none';
 
     try {
         let testResponse, sourceResponse;
         if (isCustom) {
             const content = getCustomTests()[testName];
+            const globals = getCustomGlobals()[testName] || {};
             testResponse = await fetch('/api/runtest/custom', {
                 method: 'POST',
-                headers: { 'Content-Type': 'text/plain; charset=UTF-8' },
-                body: content
+                headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+                body: JSON.stringify({
+                    name: testName,
+                    content: content,
+                    globals: globals
+                })
             });
             sourceResponse = { text: async () => content };
         } else {
             testResponse = await fetch(`/api/runtest/${testName}`);
             sourceResponse = await fetch(`/api/test/${testName}`);
+        }
+        
+        if (!testResponse.ok) {
+            const errorText = await testResponse.text();
+            throw new Error(`Server returned ${testResponse.status}: ${errorText}`);
         }
         
         lastMarkdown = await testResponse.text();
@@ -270,6 +381,7 @@ async function runTest(testName, element, isCustom = false) {
         
         exportBtn.style.display = 'block';
         sourceBtn.style.display = 'block';
+        globalsBtn.style.display = isCustom ? 'inline-block' : 'none';
         cloneBtn.style.display = 'inline-block';
         runViewBtn.style.display = 'inline-block';
         isEditing = false;
@@ -352,6 +464,7 @@ cloneBtn.onclick = () => {
         sourceEditor.style.display = 'block';
         runCustomBtn.style.display = 'inline-block';
         saveCustomBtn.style.display = 'inline-block';
+        globalsBtn.style.display = 'inline-block';
         runViewBtn.style.display = 'none';
         cloneBtn.textContent = 'Cancel';
     } else {
@@ -360,6 +473,7 @@ cloneBtn.onclick = () => {
         sourceEditor.style.display = 'none';
         runCustomBtn.style.display = 'none';
         saveCustomBtn.style.display = 'none';
+        globalsBtn.style.display = isCustomTest ? 'inline-block' : 'none';
         runViewBtn.style.display = 'inline-block';
         cloneBtn.textContent = isCustomTest ? 'Edit' : 'Clone';
     }
@@ -374,6 +488,7 @@ runViewBtn.onclick = () => {
 
 addTestBtn.onclick = () => {
     currentTestName = '';
+    unsavedGlobals = null;
     isCustomTest = true;
     isEditing = true;
     lastSource = '### New Test\nGET https://api.example.com\n';
@@ -384,6 +499,7 @@ addTestBtn.onclick = () => {
     sourceEditor.style.display = 'block';
     runCustomBtn.style.display = 'inline-block';
     saveCustomBtn.style.display = 'inline-block';
+    globalsBtn.style.display = 'inline-block';
     runViewBtn.style.display = 'none';
     cloneBtn.style.display = 'inline-block';
     cloneBtn.textContent = 'Cancel';
@@ -454,6 +570,7 @@ function handleImportedSpec(content, sourceName) {
         const httpContent = convertOpenApiToHttp(spec);
         
         currentTestName = '';
+        unsavedGlobals = null;
         isCustomTest = true;
         isEditing = true;
         lastSource = httpContent;
@@ -463,6 +580,7 @@ function handleImportedSpec(content, sourceName) {
         sourceEditor.style.display = 'block';
         runCustomBtn.style.display = 'inline-block';
         saveCustomBtn.style.display = 'inline-block';
+        globalsBtn.style.display = 'inline-block';
         runViewBtn.style.display = 'none';
         cloneBtn.style.display = 'inline-block';
         cloneBtn.textContent = 'Cancel';
@@ -543,6 +661,28 @@ function convertOpenApiToHttp(spec) {
                     });
                 }
 
+                // Request Body example
+                let contentType = 'application/json';
+                if (operation.requestBody) {
+                    const content = operation.requestBody.content;
+                    const mediaTypes = Object.keys(content || {});
+                    if (mediaTypes.length > 0) {
+                        // Prefer JSON if available, otherwise take the first one
+                        contentType = mediaTypes.includes('application/json') ? 'application/json' : mediaTypes[0];
+                    }
+                }
+
+                // Accept header based on responses
+                let acceptHeader = 'application/json';
+                const successStatus = Object.keys(operation.responses || {}).find(s => s.startsWith('2')) || '200';
+                const successResponse = operation.responses?.[successStatus];
+                if (successResponse?.content) {
+                    const mediaTypes = Object.keys(successResponse.content);
+                    if (mediaTypes.length > 0) {
+                        acceptHeader = mediaTypes.includes('application/json') ? 'application/json' : mediaTypes[0];
+                    }
+                }
+
                 http += `${method.toUpperCase()} ${baseUrl}${fullPath}\n`;
                 
                 // Add Authorization header if security is defined
@@ -568,11 +708,16 @@ function convertOpenApiToHttp(spec) {
                     }
                 }
 
-                http += 'Content-Type: application/json\n';
+                if (method.toLowerCase() !== 'delete') {
+                    if (method.toLowerCase() !== 'get') {
+                        http += `Content-Type: ${contentType}\n`;
+                    }
+                    http += `Accept: ${acceptHeader}\n`;
+                }
                 http += '\n';
 
                 // Request Body example
-                if (operation.requestBody) {
+                if (operation.requestBody && method.toLowerCase() !== 'get') {
                     const content = operation.requestBody.content;
                     const jsonContent = content?.['application/json'];
                     if (jsonContent?.example) {
@@ -580,6 +725,12 @@ function convertOpenApiToHttp(spec) {
                     } else if (jsonContent?.schema) {
                         const example = generateExampleFromSchema(jsonContent.schema, spec);
                         http += JSON.stringify(example, null, 2) + '\n';
+                    } else if (content && contentType !== 'application/json') {
+                        // For non-JSON content types, if there's an example, use it
+                        const otherContent = content[contentType];
+                        if (otherContent?.example) {
+                            http += (typeof otherContent.example === 'object' ? JSON.stringify(otherContent.example, null, 2) : otherContent.example) + '\n';
+                        }
                     }
                     http += '\n';
                 }
@@ -587,9 +738,8 @@ function convertOpenApiToHttp(spec) {
                 // Response assertions
                 http += '> {%\n';
                 http += '  // Basic assertions\n';
-                const successStatus = Object.keys(operation.responses || {}).find(s => s.startsWith('2')) || '200';
                 http += `  client.assert(response.status === ${successStatus}, "Response status is ${successStatus}");\n`;
-                http += '  client.assert(response.contentType.mimeType === "application/json", "Expected JSON content type");\n';
+                http += `  client.assert(response.contentType.mimeType === "${acceptHeader}", "Expected ${acceptHeader} content type");\n`;
                 http += '%}\n\n';
             }
         }
@@ -603,6 +753,10 @@ saveCustomBtn.onclick = () => {
         const saveName = prompt('Enter a name for this custom test:', currentTestName ? currentTestName + ' (Clone)' : 'New Test');
         if (saveName) {
             saveCustomTest(saveName, editedCode);
+            if (unsavedGlobals) {
+                saveCustomGlobals(saveName, unsavedGlobals);
+                unsavedGlobals = null;
+            }
             currentTestName = saveName;
             isCustomTest = true;
             lastSource = editedCode;
@@ -646,15 +800,20 @@ saveCustomBtn.onclick = () => {
 
 runCustomBtn.onclick = async () => {
     const editedCode = sourceEditor.value;
+    const globals = isCustomTest ? (currentTestName ? (getCustomGlobals()[currentTestName] || {}) : (unsavedGlobals || {})) : {};
     reportContent.innerHTML = `<p class="loading">Running custom test...</p>`;
     
     try {
         const response = await fetch('/api/runtest/custom', {
             method: 'POST',
             headers: {
-                'Content-Type': 'text/plain; charset=UTF-8'
+                'Content-Type': 'application/json; charset=UTF-8'
             },
-            body: editedCode
+            body: JSON.stringify({
+                name: currentTestName || 'Custom Test',
+                content: editedCode,
+                globals: globals
+            })
         });
 
         if (response.status === 404 && isCustomTest) {
@@ -668,6 +827,10 @@ runCustomBtn.onclick = async () => {
             const saveName = prompt('Enter a name for this custom test:', currentTestName ? currentTestName + ' (Clone)' : 'New Test');
             if (saveName) {
                 saveCustomTest(saveName, editedCode);
+                if (unsavedGlobals) {
+                    saveCustomGlobals(saveName, unsavedGlobals);
+                    unsavedGlobals = null;
+                }
                 currentTestName = saveName;
                 isCustomTest = true;
                 fetchTests();
@@ -675,7 +838,6 @@ runCustomBtn.onclick = async () => {
         } else {
             // Update existing custom test
             saveCustomTest(currentTestName, editedCode);
-            // No need to fetchTests, but update lastSource to reflect the changes in the source panel
         }
 
         lastMarkdown = await response.text();

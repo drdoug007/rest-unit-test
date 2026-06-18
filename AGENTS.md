@@ -64,3 +64,13 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Improved `client.global` mapping and variable propagation for better session state management in test scripts.
 - Configured JVM arguments (`-XX:+EnableDynamicAgentLoading`, `-Xshare:off`, `--sun-misc-unsafe-memory-access=allow`) to suppress warnings related to Mockito agent loading, CDS, and terminally deprecated `sun.misc.Unsafe` usage during test execution and runtime.
 - Enhanced OpenAPI import to generate `Authorization` headers based on security schemes.
+- Improved OpenAPI import to correctly set `Content-Type` and `Accept` headers based on specification media types.
+- Enhanced OpenAPI import to omit unnecessary headers and request bodies for `GET` and `DELETE` requests.
+- Implemented Global Variables management for custom `.http` tests, including a popup dialog for key/value pairs.
+- Updated the test runner to merge browser-defined global variables with server-side environment variables.
+- Persisted custom global variables in `LocalStorage` linked to each custom test.
+- Enhanced the Globals dialog to support multiple variables and fixed custom test execution to include global variables.
+- Improved the Globals dialog by adding a styled table for variable management and refined the row addition/deletion logic.
+- Fixed an issue where the "+ Add Variable" button was not displaying in the Globals modal.
+- Integrated Globals management directly into the source panel for custom tests, enabling variable definition during creation, cloning, and editing.
+- Implemented temporary state persistence for global variables in unsaved tests, ensuring they are correctly associated upon naming and saving.
