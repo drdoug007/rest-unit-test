@@ -79,3 +79,4 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Implemented automatic Base64 conversion for Basic Authentication headers when provided in "Basic username password" format.
 - Enhanced the web UI to provide JavaScript syntax highlighting for pre-scripts and post-scripts within `.http` source files.
 - Added support for JSON and SQL syntax highlighting in test reports and source views.
+- Fixed a security warning from `highlight.js` regarding unescaped HTML by ensuring safe highlighting of nested JavaScript blocks.

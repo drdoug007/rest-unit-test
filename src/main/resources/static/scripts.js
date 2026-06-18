@@ -251,20 +251,33 @@ window.onclick = function(event) {
 function highlightHttpSource(codeElement) {
     if (!codeElement) return;
     try {
-        let html = codeElement.innerHTML;
-        // Match > {% ... %} or < {% ... %}
-        // &gt; corresponds to > and &lt; corresponds to < in escaped HTML
+        // First, highlight the entire block as HTTP
+        // We use textContent to get the raw source code
+        const rawCode = codeElement.textContent;
+        const highlightedHttp = hljs.highlight(rawCode, { language: 'http' }).value;
+        
+        // Now, find and highlight nested JavaScript blocks in the already highlighted HTTP HTML
+        // The nested blocks in the highlighted HTML might have escaped characters
+        // &gt; corresponds to > and &lt; corresponds to <
         const regex = /(&gt;|&lt;)\s+{%([\s\S]*?)%}/g;
-        html = html.replace(regex, (match, prefix, content) => {
-            // Decode basic entities for hljs
-            const decodedContent = content.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-            const highlighted = hljs.highlight(decodedContent, { language: 'javascript' }).value;
-            return `${prefix} {%${highlighted}%}`;
+        const finalHtml = highlightedHttp.replace(regex, (match, prefix, content) => {
+            // Decode entities to get raw JS for highlighting
+            const decodedContent = content.replace(/&amp;/g, '&')
+                                         .replace(/&lt;/g, '<')
+                                         .replace(/&gt;/g, '>')
+                                         .replace(/&quot;/g, '"')
+                                         .replace(/&#39;/g, "'");
+            const highlightedJs = hljs.highlight(decodedContent, { language: 'javascript' }).value;
+            return `${prefix} {%${highlightJs}%}`;
         });
-        codeElement.innerHTML = html;
-        hljs.highlightElement(codeElement);
+        
+        codeElement.innerHTML = finalHtml;
+        codeElement.classList.add('hljs');
+        codeElement.setAttribute('data-highlighted', 'yes');
     } catch (e) {
         console.error('Error in highlightHttpSource:', e);
+        // Fallback to standard highlighting if our custom one fails
+        hljs.highlightElement(codeElement);
     }
 }
 
