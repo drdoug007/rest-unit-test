@@ -261,6 +261,7 @@ pre code.hljs {
     background-color: #138496;
 }
 #add-test-btn, #import-openapi-btn {
+    display: inline-block;
     min-width: auto;
     padding: 4px 10px;
     height: 30px;

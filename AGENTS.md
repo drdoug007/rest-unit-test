@@ -56,5 +56,6 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Refactored `index.html` by moving CSS and JavaScript into external files (`styles.css` and `scripts.js`).
 - Standardized font sizes across all buttons for better visual consistency.
 - Implemented light and dark mode support based on platform system settings.
+- Fixed an issue where the "+ New" and "Import OpenAPI" buttons were hidden in the sidebar.
 - Configured PDF export to always use light mode regardless of the current system theme.
 - Enhanced OpenAPI import to automatically generate example JSON request bodies from schemas.
