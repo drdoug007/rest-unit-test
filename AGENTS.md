@@ -74,3 +74,6 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Fixed an issue where the "+ Add Variable" button was not displaying in the Globals modal.
 - Integrated Globals management directly into the source panel for custom tests, enabling variable definition during creation, cloning, and editing.
 - Implemented temporary state persistence for global variables in unsaved tests, ensuring they are correctly associated upon naming and saving.
+- Fixed an issue where the "Save Globals" button was not displaying in the Globals modal.
+- Enhanced test reports and server logs to include the full request details, including headers and body.
+- Implemented automatic Base64 conversion for Basic Authentication headers when provided in "Basic username password" format.

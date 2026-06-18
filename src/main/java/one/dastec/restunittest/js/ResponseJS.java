@@ -5,7 +5,7 @@ import java.util.Map;
 public class ResponseJS {
     public final int status;
     public final Map<String, String> headers;
-    public final String body;
+    public String body;
     public final ContentType contentType;
 
     public ResponseJS(int status, Map<String, String> headers, String body) {

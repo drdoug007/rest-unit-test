@@ -330,14 +330,39 @@ public class RestTestService {
             }
             Map<String, String> headers = new HashMap<>();
             test.getHeaders().forEach((k, v) -> {
-                headers.put(k, resolveVariables(v, allVars));
+                String resolvedValue = resolveVariables(v, allVars);
+                if (k.equalsIgnoreCase("Authorization") && resolvedValue != null) {
+                    if (resolvedValue.startsWith("Basic ") && !resolvedValue.contains(":")) {
+                        String credentials = resolvedValue.substring(6).trim();
+                        // If it contains space and not already base64 (guess by space)
+                        if (credentials.contains(" ")) {
+                            String[] parts = credentials.split("\\s+", 2);
+                            String username = parts[0];
+                            String password = parts.length > 1 ? parts[1] : "";
+                            String encoded = Base64.getEncoder().encodeToString((username + ":" + password).getBytes(StandardCharsets.UTF_8));
+                            resolvedValue = "Basic " + encoded;
+                        }
+                    }
+                }
+                headers.put(k, resolvedValue);
             });
             String body = resolveVariables(test.getBody(), allVars);
 
             report.append("**Request:** `").append(method).append(" ").append(url).append("`\n\n");
 
+            if (!headers.isEmpty()) {
+                report.append("**Request Headers:**\n\n");
+                headers.forEach((k, v) -> report.append("- ").append(k).append(": ").append(v).append("\n"));
+                report.append("\n");
+            }
+
+            if (body != null && !body.isEmpty()) {
+                report.append("**Request Body:**\n\n```json\n").append(body).append("\n```\n\n");
+            }
+
             // 3. Execute HTTP Request
             RestClient client = builder.build();
+            log.info("Executing request: {} {} headers: {} body: {}", method, url, headers, body);
             RestClient.RequestBodySpec requestSpec = client.method(org.springframework.http.HttpMethod.valueOf(method))
                     .uri(url);
             headers.forEach(requestSpec::header);
