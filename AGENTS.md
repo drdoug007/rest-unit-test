@@ -93,3 +93,5 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Fixed an issue where clicking the play button would fail to find the request in the source due to HTML injection by storing the raw request line in a data attribute.
 - Fixed a bug in `runSingleRequest` where pre-scripts and comments before a request were not included when running an individual request, causing execution errors like "Request URL is missing".
 - Added detailed error logging in `RestTestService` to facilitate debugging when request URLs are missing or unresolved.
+- Enhanced `RestTestService` to support global test variables defined in `application.yaml` under `app.test-globals`.
+- Updated `application.yaml` and `application-local.yaml` to provide default and local credentials (`username`, `password`) for HTTP tests, ensuring they are distinct from database credentials.

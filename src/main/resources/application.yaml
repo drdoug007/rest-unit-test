@@ -16,3 +16,6 @@ app:
     name: Development
     release: 1.0.0
     baseUrl: http://localhost:8080
+  test-globals:
+    username: ${TEST_USERNAME:user}
+    password: ${TEST_PASSWORD:passwd}
