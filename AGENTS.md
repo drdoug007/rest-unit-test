@@ -62,4 +62,5 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Fixed an issue where the text in the "Import OpenAPI" dropdown options was difficult to read in dark mode.
 - Verified support for Basic, Digest, and Bearer authorization headers in `.http` files.
 - Improved `client.global` mapping and variable propagation for better session state management in test scripts.
-- Configured JVM arguments (`-XX:+EnableDynamicAgentLoading`, `-Xshare:off`) to suppress warnings related to Mockito agent loading and CDS during test execution.
+- Configured JVM arguments (`-XX:+EnableDynamicAgentLoading`, `-Xshare:off`, `--sun-misc-unsafe-memory-access=allow`) to suppress warnings related to Mockito agent loading, CDS, and terminally deprecated `sun.misc.Unsafe` usage during test execution and runtime.
+- Enhanced OpenAPI import to generate `Authorization` headers based on security schemes.

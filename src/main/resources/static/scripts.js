@@ -544,6 +544,30 @@ function convertOpenApiToHttp(spec) {
                 }
 
                 http += `${method.toUpperCase()} ${baseUrl}${fullPath}\n`;
+                
+                // Add Authorization header if security is defined
+                const security = operation.security || spec.security;
+                if (security && security.length > 0) {
+                    // Just take the first one for now
+                    const requirement = security[0];
+                    const schemeName = Object.keys(requirement)[0];
+                    const scheme = spec.components?.securitySchemes?.[schemeName];
+                    
+                    if (scheme) {
+                        if (scheme.type === 'http') {
+                            if (scheme.scheme === 'basic') {
+                                http += 'Authorization: Basic {{username}} {{password}}\n';
+                            } else if (scheme.scheme === 'bearer') {
+                                http += 'Authorization: Bearer {{auth_token}}\n';
+                            } else if (scheme.scheme === 'digest') {
+                                http += 'Authorization: Digest {{username}} {{password}}\n';
+                            }
+                        } else if (scheme.type === 'apiKey' && scheme.in === 'header') {
+                            http += `${scheme.name}: {{${scheme.name}}}\n`;
+                        }
+                    }
+                }
+
                 http += 'Content-Type: application/json\n';
                 http += '\n';
 
