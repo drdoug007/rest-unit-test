@@ -59,3 +59,7 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Fixed an issue where the "+ New" and "Import OpenAPI" buttons were hidden in the sidebar.
 - Configured PDF export to always use light mode regardless of the current system theme.
 - Enhanced OpenAPI import to automatically generate example JSON request bodies from schemas.
+- Fixed an issue where the text in the "Import OpenAPI" dropdown options was difficult to read in dark mode.
+- Verified support for Basic, Digest, and Bearer authorization headers in `.http` files.
+- Improved `client.global` mapping and variable propagation for better session state management in test scripts.
+- Configured JVM arguments (`-XX:+EnableDynamicAgentLoading`, `-Xshare:off`) to suppress warnings related to Mockito agent loading and CDS during test execution.
