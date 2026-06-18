@@ -4,11 +4,15 @@ A Spring Boot-based framework for executing HTTP-based unit tests with integrate
 
 ## Features
 
-- **Web Interface**: A responsive web-based UI (80% width) to select, run, and display test reports with live rendering and PDF export.
+- **Responsive Web Interface**: A full-height, three-column desktop UI to select, view, edit, and run tests.
+- **Source View & Syntax Highlighting**: Integrated `.http` source code viewer with syntax highlighting (using highlight.js) for both source and reports.
+- **Custom Browser-based Tests**: Create, edit, save, and delete custom `.http` tests directly in the browser using LocalStorage.
+- **OpenAPI Import**: Automatically generate `.http` test files with basic assertions from OpenAPI 3 specifications (File, URL, or Paste).
+- **Theme Support**: Automatic light/dark mode based on system settings, with forced light mode for PDF exports.
 - **Sequential Execution**: Supports interleaved execution of SQL and JavaScript blocks before and after the HTTP request, preserving the order defined in the test file.
 - **Robust Parser**: Strict case-sensitive HTTP method validation (GET, POST, etc.) prevents misidentification of test titles or scripts as requests.
 - **SQL Verification**: Execute SQL queries against a database via SQL blocks or directly from JavaScript using `client.sqlQuery(sql)`.
-- **JavaScript Assertions**: Write test logic in JavaScript with `client.test()`, `client.assert()`, and `jsonPath()` support.
+- **JavaScript Assertions**: Write test logic in JavaScript using `< {% %}` blocks with `client.test()`, `client.assert()`, and `jsonPath()` support.
 - **Variable Scoping**: JavaScript blocks are automatically wrapped in IIFEs to ensure local scoping and prevent variable collisions.
 - **Variable Resolution**: Comprehensive support for `{{variable}}` resolution in URLs, headers, and bodies, including global and environment-specific variables.
 - **Markdown Reports**: Automatically generates detailed reports in Markdown format with pretty-printed JSON and left-aligned table headers.

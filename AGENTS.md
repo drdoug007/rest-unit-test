@@ -54,3 +54,6 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Prevented automatic test execution when selecting a test from the sidebar.
 - Ensured consistent button sizes across the web UI.
 - Refactored `index.html` by moving CSS and JavaScript into external files (`styles.css` and `scripts.js`).
+- Standardized font sizes across all buttons for better visual consistency.
+- Implemented light and dark mode support based on platform system settings.
+- Configured PDF export to always use light mode regardless of the current system theme.

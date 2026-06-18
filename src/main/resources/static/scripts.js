@@ -311,16 +311,37 @@ sourceBtn.onclick = async () => {
     }
 };
 
-exportBtn.onclick = () => {
+exportBtn.onclick = async () => {
     const element = document.getElementById('report-content');
+    
+    // Force light mode for PDF export
+    const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (isDarkMode) {
+        document.documentElement.classList.add('light-mode');
+        // Switch highlight.js theme to light for the export
+        const hljsStyle = document.getElementById('hljs-style');
+        if (hljsStyle) {
+            hljsStyle.href = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css';
+        }
+    }
+
     const opt = {
         margin:       10,
         filename:     `test-report-${currentTestName}.pdf`,
         image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2 },
+        html2canvas:  { scale: 2, useCORS: true },
         jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
-    html2pdf().set(opt).from(element).save();
+    
+    try {
+        await html2pdf().set(opt).from(element).save();
+    } finally {
+        // Revert to system theme
+        if (isDarkMode) {
+            document.documentElement.classList.remove('light-mode');
+            updateHighlightTheme();
+        }
+    }
 };
 
 cloneBtn.onclick = () => {
@@ -619,5 +640,23 @@ runCustomBtn.onclick = async () => {
         reportContent.innerHTML = `<p style="color: red">Error running custom test: ${error.message}</p>`;
     }
 };
+
+// Handle Light/Dark Mode for Highlight.js
+function updateHighlightTheme() {
+    const hljsStyle = document.getElementById('hljs-style');
+    if (!hljsStyle) return;
+    
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        hljsStyle.href = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css';
+    } else {
+        hljsStyle.href = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css';
+    }
+}
+
+// Listen for theme changes
+if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateHighlightTheme);
+}
+updateHighlightTheme();
 
 fetchTests();
