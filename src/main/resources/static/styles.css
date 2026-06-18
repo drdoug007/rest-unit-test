@@ -36,6 +36,8 @@
     .hljs-number, .hljs-literal, .hljs-variable, .hljs-template-variable, .hljs-symbol, .hljs-bullet { color: #79c0ff !important; }
     .hljs-title, .hljs-section { color: #d2a8ff !important; font-weight: bold; }
     .hljs-meta, .hljs-meta-keyword { color: #9ea7b3 !important; font-weight: bold; }
+    .js-logo { background-color: #f7df1e; color: black; }
+    .play-button { color: #2ebf53; }
 }
 
 html, body {
@@ -264,6 +266,32 @@ pre {
 }
 .hljs-variable {
     color: #e36209 !important; /* Brighter orange for {{variables}} */
+}
+.js-logo {
+    display: inline-block;
+    background-color: #f7df1e;
+    color: black;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 1px 3px;
+    border-radius: 2px;
+    margin-right: 5px;
+    vertical-align: middle;
+    line-height: 1;
+}
+.play-button {
+    display: inline-block;
+    color: #28a745;
+    cursor: pointer;
+    margin-right: 5px;
+    font-size: 14px;
+    vertical-align: middle;
+    line-height: 1;
+    transition: transform 0.1s;
+}
+.play-button:hover {
+    transform: scale(1.2);
+    color: #218838;
 }
 .loading {
     font-style: italic;

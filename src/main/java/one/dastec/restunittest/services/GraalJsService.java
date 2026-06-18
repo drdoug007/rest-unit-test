@@ -7,37 +7,11 @@ import org.graalvm.polyglot.Value;
 import org.springframework.stereotype.Service;
 
 @Service
-public class GraalJsService implements AutoCloseable {
+public class GraalJsService {
 
-    private final Context context;
-
-    public GraalJsService() {
-        this.context = Context.newBuilder("js")
+    public Context createContext() {
+        return Context.newBuilder("js")
                 .allowHostAccess(HostAccess.ALL)
                 .build();
-    }
-
-    public Value executeScript(String script) {
-        synchronized (context) {
-            return context.eval("js", script);
-        }
-    }
-
-    public Context getContext() {
-        return context;
-    }
-
-    public void putMember(String key, Object value) {
-        synchronized (context) {
-            context.getBindings("js").putMember(key, value);
-        }
-    }
-
-    @Override
-    @PreDestroy
-    public void close() {
-        if (context != null) {
-            context.close();
-        }
     }
 }

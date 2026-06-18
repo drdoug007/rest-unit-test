@@ -8,6 +8,7 @@ import org.springframework.context.annotation.Configuration;
 public class AppProperties {
 
     private Environment environment = new Environment();
+    private java.util.Map<String, String> testGlobals = new java.util.HashMap<>();
 
     public Environment getEnvironment() {
         return environment;
@@ -15,6 +16,14 @@ public class AppProperties {
 
     public void setEnvironment(Environment environment) {
         this.environment = environment;
+    }
+
+    public java.util.Map<String, String> getTestGlobals() {
+        return testGlobals;
+    }
+
+    public void setTestGlobals(java.util.Map<String, String> testGlobals) {
+        this.testGlobals = testGlobals;
     }
 
     public static class Environment {

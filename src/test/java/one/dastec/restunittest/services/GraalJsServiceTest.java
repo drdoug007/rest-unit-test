@@ -19,13 +19,15 @@ public class GraalJsServiceTest {
 
     @AfterEach
     public void tearDown() {
-        graalJsService.close();
+        // No global context to close anymore
     }
 
     @Test
     public void testExecuteScript() {
-        Value result = graalJsService.executeScript("1 + 1");
-        assertNotNull(result);
-        assertEquals(2, result.asInt());
+        try (org.graalvm.polyglot.Context context = graalJsService.createContext()) {
+            Value result = context.eval("js", "1 + 1");
+            assertNotNull(result);
+            assertEquals(2, result.asInt());
+        }
     }
 }

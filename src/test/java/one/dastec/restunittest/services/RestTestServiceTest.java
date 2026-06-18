@@ -170,4 +170,17 @@ public class RestTestServiceTest {
         
         assertTrue(report.contains("Test Report: Test with Globals"));
     }
+
+    @Test
+    void testAppTestGlobals() {
+        appProperties.getTestGlobals().put("globalVar", "globalValue");
+        String content = "### Test Global\nGET http://localhost:8080/api/test?var={{globalVar}}";
+        ResponseEntity<String> responseEntity = new ResponseEntity<>("OK", HttpStatus.OK);
+        when(responseSpec.toEntity(String.class)).thenReturn(responseEntity);
+
+        String report = restTestService.runTestWithContent("Test with App Globals", content);
+
+        assertTrue(report.contains("Test Report: Test with App Globals"));
+        Mockito.verify(requestBodyUriSpec).uri(contains("var=globalValue"));
+    }
 }

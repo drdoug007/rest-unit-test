@@ -83,7 +83,7 @@ public class RestTestService {
     }
 
     public String runTestWithContent(String testName, String content, Map<String, Object> globals) {
-        try {
+        try (org.graalvm.polyglot.Context context = graalJsService.createContext()) {
             List<HttpTest> tests = parseHttpFile(content);
             StringBuilder report = new StringBuilder();
             if (appProperties != null && appProperties.getEnvironment() != null) {
@@ -95,19 +95,32 @@ public class RestTestService {
             HttpClientJS httpClientJS = new HttpClientJS();
 
             // Expose app properties to JS and populate variables
-            if (appProperties != null && appProperties.getEnvironment() != null) {
-                graalJsService.putMember("environment", appProperties.getEnvironment());
-                String baseUrl = appProperties.getEnvironment().getBaseUrl();
-                if (baseUrl != null) {
-                    requestJS.getVariables().set("baseUrl", baseUrl);
-                } else {
-                    requestJS.getVariables().set("baseUrl", "{{baseUrl}}");
+            if (appProperties != null) {
+                if (appProperties.getEnvironment() != null) {
+                    context.getBindings("js").putMember("environment", appProperties.getEnvironment());
+                    String baseUrl = appProperties.getEnvironment().getBaseUrl();
+                    if (baseUrl != null) {
+                        requestJS.getVariables().set("baseUrl", baseUrl);
+                    } else {
+                        requestJS.getVariables().set("baseUrl", "{{baseUrl}}");
+                    }
+                    if (appProperties.getEnvironment().getName() != null) {
+                        requestJS.getVariables().set("environmentName", appProperties.getEnvironment().getName());
+                    }
                 }
-                if (appProperties.getEnvironment().getName() != null) {
-                    requestJS.getVariables().set("environmentName", appProperties.getEnvironment().getName());
+                
+                // Load global variables from app properties
+                if (appProperties.getTestGlobals() != null) {
+                    appProperties.getTestGlobals().forEach((k, v) -> {
+                        if (v != null) {
+                            requestJS.getVariables().set(k, v);
+                            httpClientJS.getGlobal().set(k, v);
+                        }
+                    });
                 }
+                
                 // Also expose the whole app properties if needed
-                graalJsService.putMember("app", appProperties);
+                context.getBindings("js").putMember("app", appProperties);
             }
 
             // Load incoming globals if provided
@@ -122,14 +135,12 @@ public class RestTestService {
 
         // Load markdown.js helper into GraalJS context
         try {
-            if (graalJsService.getContext().getBindings("js").getMember("Markdown") == null) {
-                ClassPathResource markdownResource = new ClassPathResource("js/markdown.js");
-                if (markdownResource.exists()) {
-                    String markdownJs = markdownResource.getContentAsString(StandardCharsets.UTF_8);
-                    // Strip exports for non-module GraalJS eval
-                    markdownJs = markdownJs.replaceAll("(?m)^export ", "");
-                    graalJsService.executeScript(markdownJs);
-                }
+            ClassPathResource markdownResource = new ClassPathResource("js/markdown.js");
+            if (markdownResource.exists()) {
+                String markdownJs = markdownResource.getContentAsString(StandardCharsets.UTF_8);
+                // Strip exports for non-module GraalJS eval
+                markdownJs = markdownJs.replaceAll("(?m)^export ", "");
+                context.eval("js", markdownJs);
             }
         } catch (IOException e) {
             log.warn("Could not load markdown.js: {}", e.getMessage());
@@ -137,7 +148,7 @@ public class RestTestService {
 
             for (HttpTest test : tests) {
                 report.append("## ").append(test.getName()).append("\n\n");
-                executeTest(test, requestJS, httpClientJS, report);
+                executeTest(test, requestJS, httpClientJS, report, context);
                 report.append("\n---\n\n");
                 
                 // Propagate global variables back to requestJS for the next test in the same session
@@ -181,14 +192,16 @@ public class RestTestService {
         if (firstNonEmptyLine == -1) return test;
 
         String firstLine = lines[firstNonEmptyLine].trim();
+        String cleanFirstLine = firstLine.replaceAll("^###", "").trim();
+        
         // Check if first line is a request line (starts with HTTP method and has a URL)
         boolean firstLineIsRequest = false;
-        String[] firstLineParts = firstLine.split("\\s+");
+        String[] firstLineParts = cleanFirstLine.split("\\s+");
         if (firstLineParts.length >= 2 && firstLineParts.length <= 3) {
             firstLineIsRequest = firstLineParts[0].matches("^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)$");
         }
         
-        test.setName(firstLine.replaceAll("^###", "").trim());
+        test.setName(cleanFirstLine);
 
         StringBuilder preScript = new StringBuilder();
         StringBuilder postScript = new StringBuilder();
@@ -196,10 +209,15 @@ public class RestTestService {
         Map<String, String> headers = new HashMap<>();
         String method = null;
         String url = null;
+        
+        if (firstLineIsRequest) {
+            method = firstLineParts[0];
+            url = firstLineParts[1];
+        }
 
         String mode = "NONE"; // NONE, PRE, POST, SQL, REQUEST_BODY
 
-        int startParsingFrom = firstLineIsRequest ? firstNonEmptyLine : firstNonEmptyLine + 1;
+        int startParsingFrom = firstNonEmptyLine + 1;
 
         StringBuilder currentScript = new StringBuilder();
 
@@ -211,6 +229,7 @@ public class RestTestService {
                 if (!currentScript.toString().trim().isEmpty()) {
                     if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.PreAction("JS", currentScript.toString().trim()));
                     if (mode.equals("SQL")) test.getPreActions().add(new HttpTest.PreAction("SQL", currentScript.toString().trim()));
+                    if (mode.equals("POST")) postScript.append(currentScript);
                 }
                 currentScript = new StringBuilder();
                 mode = "PRE";
@@ -219,6 +238,7 @@ public class RestTestService {
                 if (!currentScript.toString().trim().isEmpty()) {
                     if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.PreAction("JS", currentScript.toString().trim()));
                     if (mode.equals("SQL")) test.getPreActions().add(new HttpTest.PreAction("SQL", currentScript.toString().trim()));
+                    if (mode.equals("POST")) postScript.append(currentScript);
                 }
                 currentScript = new StringBuilder();
                 mode = "SQL";
@@ -227,6 +247,7 @@ public class RestTestService {
                 if (!currentScript.toString().trim().isEmpty()) {
                     if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.PreAction("JS", currentScript.toString().trim()));
                     if (mode.equals("SQL")) test.getPreActions().add(new HttpTest.PreAction("SQL", currentScript.toString().trim()));
+                    if (mode.equals("POST")) postScript.append(currentScript);
                 }
                 currentScript = new StringBuilder();
                 mode = "POST";
@@ -270,6 +291,13 @@ public class RestTestService {
             }
         }
 
+        // Handle any remaining script in currentScript if loop finishes without %}
+        if (!currentScript.toString().trim().isEmpty()) {
+            if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.PreAction("JS", currentScript.toString().trim()));
+            if (mode.equals("SQL")) test.getPreActions().add(new HttpTest.PreAction("SQL", currentScript.toString().trim()));
+            if (mode.equals("POST")) postScript.append(currentScript);
+        }
+
         test.setPreScript(preScript.toString().trim());
         test.setPostScript(postScript.toString().trim());
         test.setMethod(method);
@@ -280,7 +308,7 @@ public class RestTestService {
         return test;
     }
 
-    private void executeTest(HttpTest test, RequestJS requestJS, HttpClientJS httpClientJS, StringBuilder report) {
+    private void executeTest(HttpTest test, RequestJS requestJS, HttpClientJS httpClientJS, StringBuilder report, org.graalvm.polyglot.Context context) {
         String testUrl = test.getUrl();
         try {
             // 1. Pre-actions (JS and SQL in order)
@@ -288,9 +316,9 @@ public class RestTestService {
                 if ("SQL".equals(action.getType())) {
                     executeSql(action.getContent(), requestJS, httpClientJS, report);
                 } else if ("JS".equals(action.getType())) {
-                    setupGraalJsContext(requestJS, httpClientJS, null);
+                    setupGraalJsContext(requestJS, httpClientJS, null, context);
                     try {
-                        graalJsService.executeScript("(function() {\n" + action.getContent() + "\n})()");
+                        context.eval("js", "(function() {\n" + action.getContent() + "\n})()");
                     } catch (Exception e) {
                         report.append("❌ **Error in pre-script:** ").append(e.getMessage()).append("\n");
                     }
@@ -369,11 +397,15 @@ public class RestTestService {
             headers.forEach(requestSpec::header);
             
             ResponseEntity<String> responseEntity;
-            if (body != null && !body.isEmpty()) {
-                responseEntity = requestSpec.body(body).retrieve().toEntity(String.class);
-            } else {
-                responseEntity = requestSpec.retrieve().toEntity(String.class);
-            }
+            RestClient.ResponseSpec responseSpec = (body != null && !body.isEmpty())
+                    ? requestSpec.body(body).retrieve()
+                    : requestSpec.retrieve();
+
+            responseEntity = responseSpec
+                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(), (req, resp) -> {
+                        // Do nothing, we want to handle all statuses manually in scripts
+                    })
+                    .toEntity(String.class);
 
             ResponseJS responseJS = new ResponseJS(
                     responseEntity.getStatusCode().value(),
@@ -386,15 +418,14 @@ public class RestTestService {
 
             // 5. Post-script
             if (test.getPostScript() != null && !test.getPostScript().isEmpty()) {
-                setupGraalJsContext(requestJS, httpClientJS, responseJS);
+                setupGraalJsContext(requestJS, httpClientJS, responseJS, context);
                 try {
                     log.info("Executing post-script for test: {}", testUrl);
-                    graalJsService.executeScript("(function() {\n" + test.getPostScript() + "\n})()");
+                    context.eval("js", "(function() {\n" + test.getPostScript() + "\n})()");
                 } catch (Exception e) {
                     log.error("Error in post-script for test {}: {}", testUrl, e.getMessage());
                     report.append("❌ **Error in post-script:** ").append(e.getMessage()).append("\n");
                 }
-                appendResults(httpClientJS, report);
                 
                 // Propagate global variables back to requestJS after post-script
                 httpClientJS.getGlobal().all().forEach((k, v) -> {
@@ -403,10 +434,11 @@ public class RestTestService {
                     }
                 });
             }
-
         } catch (Exception e) {
             report.append("❌ **Error during execution:** ").append(e.getMessage()).append("\n");
             log.error("Error during execution", e);
+        } finally {
+            appendResults(httpClientJS, report);
         }
     }
 
@@ -450,18 +482,18 @@ public class RestTestService {
         report.append("**SQL Query executed.** Returned ").append(resultSet.size()).append(" rows.\n\n");
     }
 
-    private void setupGraalJsContext(RequestJS requestJS, HttpClientJS httpClientJS, ResponseJS responseJS) {
-        graalJsService.putMember("request", requestJS);
-        graalJsService.putMember("__client", httpClientJS);
+    private void setupGraalJsContext(RequestJS requestJS, HttpClientJS httpClientJS, ResponseJS responseJS, org.graalvm.polyglot.Context context) {
+        context.getBindings("js").putMember("request", requestJS);
+        context.getBindings("js").putMember("__client", httpClientJS);
         if (responseJS != null) {
-            graalJsService.putMember("response", responseJS);
+            context.getBindings("js").putMember("response", responseJS);
         } else {
             // Remove previous response if any
-            graalJsService.getContext().getBindings("js").removeMember("response");
+            context.getBindings("js").removeMember("response");
         }
 
         // Functional interface for jsonPath to be accessible from JS
-        graalJsService.putMember("__jsonPath", (java.util.function.BiFunction<Object, String, Object>) (json, path) -> {
+        context.getBindings("js").putMember("__jsonPath", (java.util.function.BiFunction<Object, String, Object>) (json, path) -> {
             try {
                 if (json instanceof String) {
                     return JsonPath.read((String) json, path);
@@ -473,7 +505,7 @@ public class RestTestService {
             }
         });
 
-        graalJsService.putMember("__sqlQuery", (java.util.function.Function<String, Map<String, Object>>) (sql) -> {
+        context.getBindings("js").putMember("__sqlQuery", (java.util.function.Function<String, Map<String, Object>>) (sql) -> {
             try {
                 List<Map<String, Object>> data = new ArrayList<>();
                 SqlRowSet rowSet = jdbcTemplate.queryForRowSet(sql);
@@ -498,7 +530,7 @@ public class RestTestService {
         });
 
         // Map client.assert and other methods
-        graalJsService.executeScript("var client = { " +
+        context.eval("js", "var client = { " +
                 "test: function(name, callback) { __client.test(name, callback); }," +
                 "assert: function(condition, message) { __client.assertCondition(condition, message); }," +
                 "log: function(message) { __client.log(message); }," +
@@ -517,7 +549,7 @@ public class RestTestService {
                 "}," +
                 "sqlQuery: function(sql) { return __sqlQuery(sql); }" +
                 "};" +
-                "var jsonPath = function(json, path) { return __jsonPath.apply(json, path); };");
+                "var jsonPath = function(json, path) { return __jsonPath(json, path); };");
     }
 
     private void appendResults(HttpClientJS httpClientJS, StringBuilder report) {

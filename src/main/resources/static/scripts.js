@@ -410,6 +410,7 @@ async function runSingleRequest(requestLine) {
     }
 
     if (!found) {
+        console.log("Could not find request in source: " + requestLine);
         alert("Could not find request in source: " + requestLine);
         return;
     }
@@ -436,6 +437,7 @@ async function runSingleRequest(requestLine) {
         }
 
         const markdown = await response.text();
+        lastMarkdown = markdown;
         reportContent.innerHTML = marked.parse(markdown);
         
         // Highlight report
@@ -923,8 +925,9 @@ function convertOpenApiToHttp(spec) {
                 // Response assertions
                 http += '> {%\n';
                 http += '  // Basic assertions\n';
-                http += `  client.assert(response.status === ${successStatus}, "Response status is ${successStatus}");\n`;
-                http += `  client.assert(response.contentType.mimeType === "${acceptHeader}", "Expected ${acceptHeader} content type");\n`;
+                http += '  client.test("Request executed successfully", function () {\n'
+                http += '    client.assert(response.status === 200, "Response status is ${response.status}");\n';
+                http += '  });\n\n';
                 http += '%}\n\n';
             }
         }

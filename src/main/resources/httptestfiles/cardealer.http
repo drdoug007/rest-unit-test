@@ -1,5 +1,3 @@
-
-
 ### GET request to example server
 < {%
     markdowner.heading(3, "Before: TABLE: CARDEALERS");
@@ -10,6 +8,7 @@
 
 GET {{baseUrl}}/api/cardealer
 Accept:  application/json
+Authorization: Basic {{username}} {{password}}
 
 > {%
     client.test("Request executed successfully", function () {
@@ -46,6 +45,7 @@ Accept:  application/json
 POST {{baseUrl}}/api/cardealer/1/car
 Content-Type: application/json
 Accept: application/json
+Authorization: Basic {{username}} {{password}}
 
 {
   "make": "Chrysler",
@@ -80,6 +80,7 @@ Accept: application/json
 ### Get car
 GET {{baseUrl}}/api/car/{{carId}}
 Accept: application/json
+Authorization: Basic {{username}} {{password}}
 
 > {%
     client.test("Request executed successfully", function () {
@@ -100,6 +101,7 @@ Accept: application/json
 PUT {{baseUrl}}/api/car/{{carId}}
 Accept: application/json
 Content-Type: application/json
+Authorization: Basic {{username}} {{password}}
 
 {
     "color": "Red"
@@ -133,6 +135,7 @@ Content-Type: application/json
 DELETE {{baseUrl}}/api/car/{{carId}}
 Accept: application/json
 Content-Type: application/json
+Authorization: Basic {{username}} {{password}}
 
 > {%
     client.test("Request executed successfully", function () {
