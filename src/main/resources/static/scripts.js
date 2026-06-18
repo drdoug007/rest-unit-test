@@ -248,6 +248,26 @@ window.onclick = function(event) {
     }
 };
 
+function highlightHttpSource(codeElement) {
+    if (!codeElement) return;
+    try {
+        let html = codeElement.innerHTML;
+        // Match > {% ... %} or < {% ... %}
+        // &gt; corresponds to > and &lt; corresponds to < in escaped HTML
+        const regex = /(&gt;|&lt;)\s+{%([\s\S]*?)%}/g;
+        html = html.replace(regex, (match, prefix, content) => {
+            // Decode basic entities for hljs
+            const decodedContent = content.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+            const highlighted = hljs.highlight(decodedContent, { language: 'javascript' }).value;
+            return `${prefix} {%${highlighted}%}`;
+        });
+        codeElement.innerHTML = html;
+        hljs.highlightElement(codeElement);
+    } catch (e) {
+        console.error('Error in highlightHttpSource:', e);
+    }
+}
+
 async function selectTest(testName, element, isCustom = false) {
     currentTestName = testName;
     isCustomTest = isCustom;
@@ -283,13 +303,7 @@ async function selectTest(testName, element, isCustom = false) {
                 console.error('highlight.js not available for highlighting');
                 return;
             }
-            // Ensure highlighting is applied to the source panel
-            const sourceCode = sourceContent.querySelector('code');
-            if (sourceCode) {
-                try {
-                    hljs.highlightElement(sourceCode);
-                } catch (e) { console.error('Error highlighting source panel:', e); }
-            }
+            highlightHttpSource(sourceContent.querySelector('code'));
         }, 0);
         
         sourceBtn.style.display = 'block';
@@ -353,23 +367,14 @@ async function runTest(testName, element, isCustom = false) {
         reportContent.innerHTML = marked.parse(lastMarkdown);
         sourceContent.innerHTML = `<pre><code class="language-http">${escapeHtml(lastSource)}</code></pre>`;
         
-        // TODO: Fix highlighting not being applied correctly.
-        // Even though hljs.highlightElement is called, the UI does not show the expected colors.
-        // Investigating if it's a CSS conflict or a timing issue with the library loading.
-    
         // Use setTimeout to ensure DOM is updated before highlighting
         setTimeout(() => {
             if (typeof hljs === 'undefined') {
                 console.error('highlight.js not available for highlighting');
                 return;
             }
-            // Ensure highlighting is applied to the source panel
-            const sourceCode = sourceContent.querySelector('code');
-            if (sourceCode) {
-                try {
-                    hljs.highlightElement(sourceCode);
-                } catch (e) { console.error('Error highlighting source panel:', e); }
-            }
+            
+            highlightHttpSource(sourceContent.querySelector('code'));
             
             // Also highlight any code blocks in the report
             reportContent.querySelectorAll('pre code').forEach((block) => {
@@ -409,12 +414,7 @@ sourceBtn.onclick = async () => {
         reportContent.innerHTML = `<pre><code class="language-http">${escapeHtml(lastSource)}</code></pre>`;
         setTimeout(() => {
             if (typeof hljs !== 'undefined') {
-                const reportCode = reportContent.querySelector('code');
-                if (reportCode) {
-                    try {
-                        hljs.highlightElement(reportCode);
-                    } catch (e) { console.error('Error highlighting toggled source:', e); }
-                }
+                highlightHttpSource(reportContent.querySelector('code'));
             }
         }, 0);
         sourceBtn.textContent = 'View Report';

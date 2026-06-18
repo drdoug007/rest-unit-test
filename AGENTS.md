@@ -77,3 +77,5 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Fixed an issue where the "Save Globals" button was not displaying in the Globals modal.
 - Enhanced test reports and server logs to include the full request details, including headers and body.
 - Implemented automatic Base64 conversion for Basic Authentication headers when provided in "Basic username password" format.
+- Enhanced the web UI to provide JavaScript syntax highlighting for pre-scripts and post-scripts within `.http` source files.
+- Added support for JSON and SQL syntax highlighting in test reports and source views.
