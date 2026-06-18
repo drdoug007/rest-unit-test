@@ -474,6 +474,49 @@ function handleImportedSpec(content, sourceName) {
     }
 }
 
+function generateExampleFromSchema(schema, spec) {
+    if (!schema) return null;
+
+    // Handle $ref
+    if (schema.$ref) {
+        const refPath = schema.$ref.split('/');
+        let refObj = spec;
+        for (let i = 1; i < refPath.length; i++) {
+            refObj = refObj[refPath[i]];
+            if (!refObj) break;
+        }
+        return generateExampleFromSchema(refObj, spec);
+    }
+
+    if (schema.example !== undefined) return schema.example;
+    if (schema.default !== undefined) return schema.default;
+
+    const type = schema.type;
+
+    if (type === 'object') {
+        const obj = {};
+        if (schema.properties) {
+            for (const [propName, propSchema] of Object.entries(schema.properties)) {
+                obj[propName] = generateExampleFromSchema(propSchema, spec);
+            }
+        }
+        return obj;
+    } else if (type === 'array') {
+        return [generateExampleFromSchema(schema.items, spec)];
+    } else if (type === 'string') {
+        if (schema.format === 'date-time') return new Date().toISOString();
+        if (schema.format === 'date') return new Date().toISOString().split('T')[0];
+        if (schema.enum) return schema.enum[0];
+        return "string";
+    } else if (type === 'number' || type === 'integer') {
+        return 0;
+    } else if (type === 'boolean') {
+        return true;
+    }
+
+    return null;
+}
+
 function convertOpenApiToHttp(spec) {
     let http = `### ${spec.info?.title || 'OpenAPI Import'}\n`;
     if (spec.info?.description) {
@@ -511,8 +554,8 @@ function convertOpenApiToHttp(spec) {
                     if (jsonContent?.example) {
                         http += JSON.stringify(jsonContent.example, null, 2) + '\n';
                     } else if (jsonContent?.schema) {
-                        // Could generate from schema, but let's keep it simple for now
-                        http += '{\n  "TODO": "Add request body"\n}\n';
+                        const example = generateExampleFromSchema(jsonContent.schema, spec);
+                        http += JSON.stringify(example, null, 2) + '\n';
                     }
                     http += '\n';
                 }

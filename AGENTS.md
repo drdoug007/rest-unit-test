@@ -57,3 +57,4 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Standardized font sizes across all buttons for better visual consistency.
 - Implemented light and dark mode support based on platform system settings.
 - Configured PDF export to always use light mode regardless of the current system theme.
+- Enhanced OpenAPI import to automatically generate example JSON request bodies from schemas.
