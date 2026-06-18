@@ -268,16 +268,32 @@ function highlightHttpSource(codeElement) {
                                          .replace(/&quot;/g, '"')
                                          .replace(/&#39;/g, "'");
             const highlightedJs = hljs.highlight(decodedContent, { language: 'javascript' }).value;
-            return `${prefix} {%${highlightJs}%}`;
+            return `<span class="hljs-meta">${prefix} {%</span>${highlightedJs}<span class="hljs-meta">%}</span>`;
         });
         
-        codeElement.innerHTML = finalHtml;
+        // Final adjustment for HTTP specific elements if not caught by hljs-http
+        let customHighlighted = finalHtml;
+        // Highlight GET, POST, etc. and URL
+        // Regex for: METHOD URL
+        const requestLineRegex = /^(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD|TRACE) (.*)$/gm;
+        customHighlighted = customHighlighted.replace(requestLineRegex, '<span class="hljs-keyword">$1</span> <span class="hljs-title">$2</span>');
+
+        // Highlight ### as section
+        customHighlighted = customHighlighted.replace(/^### (.*)$/gm, '<span class="hljs-section">### $1</span>');
+        // Highlight // comments
+        customHighlighted = customHighlighted.replace(/^\/\/ (.*)$/gm, '<span class="hljs-comment">// $1</span>');
+        // Highlight variables {{var}} with a specific class
+        customHighlighted = customHighlighted.replace(/\{\{(.*?)\}\}/g, '<span class="hljs-variable">{{$1}}</span>');
+        
+        codeElement.innerHTML = customHighlighted;
         codeElement.classList.add('hljs');
         codeElement.setAttribute('data-highlighted', 'yes');
     } catch (e) {
         console.error('Error in highlightHttpSource:', e);
         // Fallback to standard highlighting if our custom one fails
-        hljs.highlightElement(codeElement);
+        if (typeof hljs !== 'undefined') {
+            hljs.highlightElement(codeElement);
+        }
     }
 }
 

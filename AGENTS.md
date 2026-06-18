@@ -80,3 +80,11 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Enhanced the web UI to provide JavaScript syntax highlighting for pre-scripts and post-scripts within `.http` source files.
 - Added support for JSON and SQL syntax highlighting in test reports and source views.
 - Fixed a security warning from `highlight.js` regarding unescaped HTML by ensuring safe highlighting of nested JavaScript blocks.
+- Fixed a `ReferenceError` in `highlightHttpSource` caused by a variable name typo (`highlightJs` vs `highlightedJs`).
+- Improved robustness of syntax highlighting by adding checks for the `hljs` library before usage.
+- Enhanced HTTP syntax highlighting in the web UI by adding explicit CSS rules for comments, methods, URLs, and separators across light and dark modes.
+- Fixed an issue where section markers (`###`) and comments (`//`) were not correctly highlighted in `.http` source files by implementing custom regex-based highlighting for these elements.
+- Improved the visibility of variables (`{{var}}`) in `.http` files by adding specific CSS rules and a dedicated highlighting class.
+- Ensured consistent styling for script block markers (`> {%` and `< {%`) by wrapping them in `hljs-meta` spans.
+- Improved syntax highlighting for `.http` files by adding custom regex for HTTP methods and URLs, ensuring they are correctly colorized in the source view.
+- Improved readability of JavaScript block delimiters and strings in dark mode by adjusting CSS colors for better contrast.
