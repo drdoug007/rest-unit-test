@@ -55,6 +55,7 @@ public class RestTestServiceTest {
         when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodyUriSpec);
         when(requestBodyUriSpec.header(anyString(), anyString())).thenReturn(requestBodyUriSpec);
         when(requestBodyUriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
         
         restTestService = new RestTestService(dataSource, jdbcTemplate, builder, graalJsService, appProperties);
     }
