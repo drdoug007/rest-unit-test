@@ -273,10 +273,24 @@ function highlightHttpSource(codeElement) {
         
         // Final adjustment for HTTP specific elements if not caught by hljs-http
         let customHighlighted = finalHtml;
+
+        // Inject JS logo next to script blocks
+        const jsLogo = '<span class="js-logo" title="JavaScript">JS</span>';
+        const scriptMarkerRegex = /<span class="hljs-meta">(&gt;|&lt;)\s+{%<\/span>/g;
+        customHighlighted = customHighlighted.replace(scriptMarkerRegex, (match) => {
+            return `${jsLogo}${match}`;
+        });
+
         // Highlight GET, POST, etc. and URL
         // Regex for: METHOD URL
+        // We ensure we match the whole line for better replacement
         const requestLineRegex = /^(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD|TRACE) (.*)$/gm;
-        customHighlighted = customHighlighted.replace(requestLineRegex, '<span class="hljs-keyword">$1</span> <span class="hljs-title">$2</span>');
+        const playButton = '<span class="play-button" title="Run this test">▶</span>';
+        customHighlighted = customHighlighted.replace(requestLineRegex, (match, method, url) => {
+            // Store the raw request line in a data attribute for easier retrieval
+            const rawLine = match.trim();
+            return `${playButton}<span class="hljs-keyword" data-request-line="${rawLine}">${method}</span> <span class="hljs-title">${url}</span>`;
+        });
 
         // Highlight ### as section
         customHighlighted = customHighlighted.replace(/^### (.*)$/gm, '<span class="hljs-section">### $1</span>');
@@ -288,12 +302,154 @@ function highlightHttpSource(codeElement) {
         codeElement.innerHTML = customHighlighted;
         codeElement.classList.add('hljs');
         codeElement.setAttribute('data-highlighted', 'yes');
+
+        // Add event listeners for play buttons
+        codeElement.querySelectorAll('.play-button').forEach(btn => {
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                // Find the keyword span that contains the raw request line
+                const keywordSpan = btn.parentElement.querySelector('.hljs-keyword');
+                const rawLine = keywordSpan ? keywordSpan.getAttribute('data-request-line') : '';
+                if (rawLine) {
+                    runSingleRequest(rawLine);
+                } else {
+                    // Fallback to previous method if data attribute is missing
+                    const cleanLine = btn.parentElement.innerText.replace(/^▶/, '').trim();
+                    runSingleRequest(cleanLine);
+                }
+            };
+        });
     } catch (e) {
         console.error('Error in highlightHttpSource:', e);
         // Fallback to standard highlighting if our custom one fails
         if (typeof hljs !== 'undefined') {
             hljs.highlightElement(codeElement);
         }
+    }
+}
+
+async function runSingleRequest(requestLine) {
+    if (!lastSource) return;
+    
+    // Parse the full source to find the request block starting with this line
+    const lines = lastSource.split('\n');
+    let requestContent = "";
+    let found = false;
+    const normalizedRequestLine = requestLine.trim();
+    
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim() === normalizedRequestLine) {
+            found = true;
+            // Backtrack to find pre-scripts and comments before the request
+            let start = i;
+            while (start > 0) {
+                const prevLine = lines[start - 1].trim();
+                if (prevLine.startsWith('###')) break;
+                // Include pre-scripts, comments, and empty lines
+                if (prevLine.startsWith('< {%') || prevLine.startsWith('//') || prevLine === "") {
+                    start--;
+                } else if (prevLine.endsWith('%}')) {
+                    // If it's the end of a block, we need to find the start
+                    let blockStart = start - 1;
+                    while (blockStart > 0 && !lines[blockStart].trim().startsWith('< {%') && !lines[blockStart].trim().startsWith('> {%')) {
+                        blockStart--;
+                    }
+                    if (lines[blockStart].trim().startsWith('< {%')) {
+                        start = blockStart;
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+            
+            // Extract from start until next ### or end
+            requestContent = lines.slice(start, i + 1).join('\n');
+            for (let j = i + 1; j < lines.length; j++) {
+                if (lines[j].startsWith('###')) break;
+                requestContent += '\n' + lines[j];
+            }
+            break;
+        }
+    }
+
+    if (!found) {
+        // Try fuzzy match if exact match fails due to whitespace
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].includes(normalizedRequestLine)) {
+                found = true;
+                let start = i;
+                while (start > 0) {
+                    const prevLine = lines[start - 1].trim();
+                    if (prevLine.startsWith('###')) break;
+                    if (prevLine.startsWith('< {%') || prevLine.startsWith('//') || prevLine === "") {
+                        start--;
+                    } else if (prevLine.endsWith('%}')) {
+                        let blockStart = start - 1;
+                        while (blockStart > 0 && !lines[blockStart].trim().startsWith('< {%') && !lines[blockStart].trim().startsWith('> {%')) {
+                            blockStart--;
+                        }
+                        if (lines[blockStart].trim().startsWith('< {%')) {
+                            start = blockStart;
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                requestContent = lines.slice(start, i + 1).join('\n');
+                for (let j = i + 1; j < lines.length; j++) {
+                    if (lines[j].startsWith('###')) break;
+                    requestContent += '\n' + lines[j];
+                }
+                break;
+            }
+        }
+    }
+
+    if (!found) {
+        alert("Could not find request in source: " + requestLine);
+        return;
+    }
+
+    const testName = "Single Request: " + requestLine.split(' ')[0];
+    const globals = isCustomTest ? (getCustomGlobals()[currentTestName] || {}) : {};
+
+    reportContent.innerHTML = `<p class="loading">Running single request...</p>`;
+    
+    try {
+        const response = await fetch('/api/runtest/custom', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+            body: JSON.stringify({
+                name: testName,
+                content: requestContent,
+                globals: globals
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Server returned ${response.status}: ${errorText}`);
+        }
+
+        const markdown = await response.text();
+        reportContent.innerHTML = marked.parse(markdown);
+        
+        // Highlight report
+        setTimeout(() => {
+            reportContent.querySelectorAll('pre code').forEach((block) => {
+                if (typeof hljs !== 'undefined') {
+                    hljs.highlightElement(block);
+                }
+            });
+        }, 0);
+        
+        exportBtn.style.display = 'block';
+    } catch (error) {
+        reportContent.innerHTML = `<p style="color: red">Error running request: ${error.message}</p>`;
     }
 }
 

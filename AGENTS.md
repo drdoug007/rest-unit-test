@@ -88,3 +88,8 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Ensured consistent styling for script block markers (`> {%` and `< {%`) by wrapping them in `hljs-meta` spans.
 - Improved syntax highlighting for `.http` files by adding custom regex for HTTP methods and URLs, ensuring they are correctly colorized in the source view.
 - Improved readability of JavaScript block delimiters and strings in dark mode by adjusting CSS colors for better contrast.
+- Added a green play button next to HTTP methods in the source view to allow running individual requests.
+- Added a JavaScript logo next to script blocks in the source view for easy identification.
+- Fixed an issue where clicking the play button would fail to find the request in the source due to HTML injection by storing the raw request line in a data attribute.
+- Fixed a bug in `runSingleRequest` where pre-scripts and comments before a request were not included when running an individual request, causing execution errors like "Request URL is missing".
+- Added detailed error logging in `RestTestService` to facilitate debugging when request URLs are missing or unresolved.

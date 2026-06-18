@@ -322,6 +322,7 @@ public class RestTestService {
 
             String url = resolveVariables(test.getUrl(), allVars);
             if (url == null || url.trim().isEmpty()) {
+                log.error("Request URL is missing for test: {}. Method: {}, Headers: {}, Body: {}", test.getName(), test.getMethod(), test.getHeaders(), test.getBody());
                 throw new RuntimeException("Request URL is missing. Check if the .http file has a valid request line (e.g., GET http://...)");
             }
             String method = test.getMethod();
