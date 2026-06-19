@@ -16,6 +16,8 @@ const importUrlBtn = document.getElementById('import-url-btn');
 const importPasteBtn = document.getElementById('import-paste-btn');
 const openapiFileInput = document.getElementById('openapi-file-input');
 const sourceEditor = document.getElementById('source-editor');
+const sourceCode = document.getElementById('source-code');
+const sourceGutter = document.getElementById('source-gutter');
 
 // Globals Modal Elements
 const globalsModal = document.getElementById('globals-modal');
@@ -250,6 +252,11 @@ window.onclick = function(event) {
 
 function highlightHttpSource(codeElement) {
     if (!codeElement) return;
+    const isSourcePanel = codeElement.id === 'source-code';
+    if (isSourcePanel) {
+        sourceGutter.innerHTML = '';
+    }
+
     try {
         // First, highlight the entire block as HTTP
         // We use textContent to get the raw source code
@@ -274,24 +281,6 @@ function highlightHttpSource(codeElement) {
         // Final adjustment for HTTP specific elements if not caught by hljs-http
         let customHighlighted = finalHtml;
 
-        // Inject JS logo next to script blocks
-        const jsLogo = '<span class="js-logo" title="JavaScript">JS</span>';
-        const scriptMarkerRegex = /<span class="hljs-meta">(&gt;|&lt;)\s+{%<\/span>/g;
-        customHighlighted = customHighlighted.replace(scriptMarkerRegex, (match) => {
-            return `${jsLogo}${match}`;
-        });
-
-        // Highlight GET, POST, etc. and URL
-        // Regex for: METHOD URL
-        // We ensure we match the whole line for better replacement
-        const requestLineRegex = /^(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD|TRACE) (.*)$/gm;
-        const playButton = '<span class="play-button" title="Run this test">▶</span>';
-        customHighlighted = customHighlighted.replace(requestLineRegex, (match, method, url) => {
-            // Store the raw request line in a data attribute for easier retrieval
-            const rawLine = match.trim();
-            return `${playButton}<span class="hljs-keyword" data-request-line="${rawLine}">${method}</span> <span class="hljs-title">${url}</span>`;
-        });
-
         // Highlight ### as section
         customHighlighted = customHighlighted.replace(/^### (.*)$/gm, '<span class="hljs-section">### $1</span>');
         // Highlight // comments
@@ -299,26 +288,60 @@ function highlightHttpSource(codeElement) {
         // Highlight variables {{var}} with a specific class
         customHighlighted = customHighlighted.replace(/\{\{(.*?)\}\}/g, '<span class="hljs-variable">{{$1}}</span>');
         
-        codeElement.innerHTML = customHighlighted;
+        if (isSourcePanel) {
+            // Split into lines for gutter alignment
+            const lines = customHighlighted.split('\n');
+            const rawLines = rawCode.split('\n');
+            const gutterLines = [];
+            const processedLines = [];
+
+            const requestLineRegex = /^(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD|TRACE) (.*)$/;
+            const scriptMarkerRegex = /<span class="hljs-meta">(&gt;|&lt;)\s+{%<\/span>/;
+
+            lines.forEach((line, index) => {
+                let markerHtml = '';
+                let processedLine = line;
+
+                // Check for script marker
+                if (scriptMarkerRegex.test(line)) {
+                    markerHtml = '<span class="js-logo" title="JavaScript">JS</span>';
+                }
+
+                // Check for request line
+                const requestMatch = line.match(requestLineRegex);
+                if (requestMatch) {
+                    const [full, method, url] = requestMatch;
+                    const rawLine = rawLines[index].trim();
+                    markerHtml = `<span class="play-button" title="Run this test" data-request-line="${escapeHtml(rawLine)}">▶</span>`;
+                    processedLine = `<span class="hljs-keyword">${method}</span> <span class="hljs-title">${url}</span>`;
+                }
+
+                gutterLines.push(`<div class="gutter-line">${markerHtml}</div>`);
+                processedLines.push(processedLine);
+            });
+
+            sourceGutter.innerHTML = gutterLines.join('');
+            codeElement.innerHTML = processedLines.join('\n');
+
+            // Add event listeners for play buttons in gutter
+            sourceGutter.querySelectorAll('.play-button').forEach(btn => {
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    const rawLine = btn.getAttribute('data-request-line');
+                    runSingleRequest(rawLine);
+                };
+            });
+        } else {
+            // Standard highlighting for non-source-panel code blocks (e.g. in reports)
+            const requestLineRegex = /^(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD|TRACE) (.*)$/gm;
+            customHighlighted = customHighlighted.replace(requestLineRegex, (match, method, url) => {
+                return `<span class="hljs-keyword">${method}</span> <span class="hljs-title">${url}</span>`;
+            });
+            codeElement.innerHTML = customHighlighted;
+        }
+
         codeElement.classList.add('hljs');
         codeElement.setAttribute('data-highlighted', 'yes');
-
-        // Add event listeners for play buttons
-        codeElement.querySelectorAll('.play-button').forEach(btn => {
-            btn.onclick = (e) => {
-                e.stopPropagation();
-                // Find the keyword span that contains the raw request line
-                const keywordSpan = btn.parentElement.querySelector('.hljs-keyword');
-                const rawLine = keywordSpan ? keywordSpan.getAttribute('data-request-line') : '';
-                if (rawLine) {
-                    runSingleRequest(rawLine);
-                } else {
-                    // Fallback to previous method if data attribute is missing
-                    const cleanLine = btn.parentElement.innerText.replace(/^▶/, '').trim();
-                    runSingleRequest(cleanLine);
-                }
-            };
-        });
     } catch (e) {
         console.error('Error in highlightHttpSource:', e);
         // Fallback to standard highlighting if our custom one fails
@@ -344,7 +367,10 @@ async function runSingleRequest(requestLine) {
             let start = i;
             while (start > 0) {
                 const prevLine = lines[start - 1].trim();
-                if (prevLine.startsWith('###')) break;
+                if (prevLine.startsWith('###')) {
+                    start--;
+                    break;
+                }
                 // Include pre-scripts, comments, and empty lines
                 if (prevLine.startsWith('< {%') || prevLine.startsWith('//') || prevLine === "") {
                     start--;
@@ -382,7 +408,10 @@ async function runSingleRequest(requestLine) {
                 let start = i;
                 while (start > 0) {
                     const prevLine = lines[start - 1].trim();
-                    if (prevLine.startsWith('###')) break;
+                    if (prevLine.startsWith('###')) {
+                        start--;
+                        break;
+                    }
                     if (prevLine.startsWith('< {%') || prevLine.startsWith('//') || prevLine === "") {
                         start--;
                     } else if (prevLine.endsWith('%}')) {
@@ -465,7 +494,8 @@ async function selectTest(testName, element, isCustom = false) {
     element.classList.add('active');
     
     reportContent.innerHTML = `<p>Test <strong>${testName}</strong> selected. Click Run to execute.</p>`;
-    sourceContent.innerHTML = `<p class="loading">Fetching source...</p>`;
+    sourceGutter.innerHTML = '';
+    sourceCode.innerHTML = '<span class="loading">Fetching source...</span>';
     exportBtn.style.display = 'none';
     sourceBtn.style.display = 'none';
     globalsBtn.style.display = 'none';
@@ -482,7 +512,7 @@ async function selectTest(testName, element, isCustom = false) {
         }
         
         lastSource = await sourceResponse.text();
-        sourceContent.innerHTML = `<pre><code class="language-http">${escapeHtml(lastSource)}</code></pre>`;
+        sourceCode.textContent = lastSource;
         
         // Use setTimeout to ensure DOM is updated before highlighting
         setTimeout(() => {
@@ -490,7 +520,7 @@ async function selectTest(testName, element, isCustom = false) {
                 console.error('highlight.js not available for highlighting');
                 return;
             }
-            highlightHttpSource(sourceContent.querySelector('code'));
+            highlightHttpSource(sourceCode);
         }, 0);
         
         sourceBtn.style.display = 'block';
@@ -504,7 +534,8 @@ async function selectTest(testName, element, isCustom = false) {
         saveCustomBtn.style.display = 'none';
         cloneBtn.textContent = isCustomTest ? 'Edit' : 'Clone';
     } catch (error) {
-        sourceContent.innerHTML = `<p style="color: red">Error fetching source: ${error.message}</p>`;
+        sourceGutter.innerHTML = '';
+        sourceCode.innerHTML = `<span style="color: red">Error fetching source: ${error.message}</span>`;
     }
 }
 
@@ -518,7 +549,8 @@ async function runTest(testName, element, isCustom = false) {
     element.classList.add('active');
     
     reportContent.innerHTML = `<p class="loading">Running test ${testName}...</p>`;
-    sourceContent.innerHTML = `<p class="loading">Fetching source...</p>`;
+    sourceGutter.innerHTML = '';
+    sourceCode.innerHTML = '<span class="loading">Fetching source...</span>';
     exportBtn.style.display = 'none';
     sourceBtn.style.display = 'none';
     globalsBtn.style.display = 'none';
@@ -552,7 +584,7 @@ async function runTest(testName, element, isCustom = false) {
         lastSource = await sourceResponse.text();
 
         reportContent.innerHTML = marked.parse(lastMarkdown);
-        sourceContent.innerHTML = `<pre><code class="language-http">${escapeHtml(lastSource)}</code></pre>`;
+        sourceCode.textContent = lastSource;
         
         // Use setTimeout to ensure DOM is updated before highlighting
         setTimeout(() => {
@@ -561,7 +593,7 @@ async function runTest(testName, element, isCustom = false) {
                 return;
             }
             
-            highlightHttpSource(sourceContent.querySelector('code'));
+            highlightHttpSource(sourceCode);
             
             // Also highlight any code blocks in the report
             reportContent.querySelectorAll('pre code').forEach((block) => {
@@ -588,7 +620,11 @@ async function runTest(testName, element, isCustom = false) {
 }
 
 function escapeHtml(text) {
-    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return text.replace(/&/g, '&amp;')
+               .replace(/</g, '&lt;')
+               .replace(/>/g, '&gt;')
+               .replace(/"/g, '&quot;')
+               .replace(/'/g, '&#39;');
 }
 
 sourceBtn.onclick = async () => {
@@ -620,7 +656,7 @@ exportBtn.onclick = async () => {
         // Switch highlight.js theme to light for the export
         const hljsStyle = document.getElementById('hljs-style');
         if (hljsStyle) {
-            hljsStyle.href = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css';
+            hljsStyle.href = 'lib/highlight/styles/github.min.css';
         }
     }
 
@@ -928,6 +964,14 @@ function convertOpenApiToHttp(spec) {
                 http += '  client.test("Request executed successfully", function () {\n'
                 http += '    client.assert(response.status === 200, "Response status is ${response.status}");\n';
                 http += '  });\n\n';
+
+
+                // Response Body
+                http += '  if (response.body) {\n';
+                http += '    markdowner.heading(3, "Response Message");\n';
+                http += '    markdowner.codeBlock("json", JSON.stringify(JSON.parse(response.body), null, 2));\n';
+                http += '  }\n';
+
                 http += '%}\n\n';
             }
         }
@@ -948,7 +992,7 @@ saveCustomBtn.onclick = () => {
             currentTestName = saveName;
             isCustomTest = true;
             lastSource = editedCode;
-            sourceContent.innerHTML = `<pre><code class="language-http">${escapeHtml(lastSource)}</code></pre>`;
+            sourceCode.textContent = lastSource;
             fetchTests();
             // Exit edit mode after save
             isEditing = false;
@@ -960,15 +1004,14 @@ saveCustomBtn.onclick = () => {
             // Re-highlight
             setTimeout(() => {
                 if (typeof hljs !== 'undefined') {
-                    const sourceCode = sourceContent.querySelector('code');
-                    if (sourceCode) hljs.highlightElement(sourceCode);
+                    highlightHttpSource(sourceCode);
                 }
             }, 0);
         }
     } else {
         saveCustomTest(currentTestName, editedCode);
         lastSource = editedCode;
-        sourceContent.innerHTML = `<pre><code class="language-http">${escapeHtml(lastSource)}</code></pre>`;
+        sourceCode.textContent = lastSource;
         // Exit edit mode after save
         isEditing = false;
         sourceContent.style.display = 'block';
@@ -979,8 +1022,7 @@ saveCustomBtn.onclick = () => {
         // Re-highlight
         setTimeout(() => {
             if (typeof hljs !== 'undefined') {
-                const sourceCode = sourceContent.querySelector('code');
-                if (sourceCode) hljs.highlightElement(sourceCode);
+                highlightHttpSource(sourceCode);
             }
         }, 0);
     }
@@ -1032,13 +1074,12 @@ runCustomBtn.onclick = async () => {
         lastSource = editedCode;
 
         reportContent.innerHTML = marked.parse(lastMarkdown);
-        sourceContent.innerHTML = `<pre><code class="language-http">${escapeHtml(lastSource)}</code></pre>`;
+        sourceCode.textContent = lastSource;
         
         // Highlight
         setTimeout(() => {
             if (typeof hljs !== 'undefined') {
-                const sourceCode = sourceContent.querySelector('code');
-                if (sourceCode) hljs.highlightElement(sourceCode);
+                highlightHttpSource(sourceCode);
                 reportContent.querySelectorAll('pre code').forEach((block) => {
                     hljs.highlightElement(block);
                 });
@@ -1064,9 +1105,9 @@ function updateHighlightTheme() {
     if (!hljsStyle) return;
     
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        hljsStyle.href = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css';
+        hljsStyle.href = 'lib/highlight/styles/github-dark.min.css';
     } else {
-        hljsStyle.href = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css';
+        hljsStyle.href = 'lib/highlight/styles/github.min.css';
     }
 }
 

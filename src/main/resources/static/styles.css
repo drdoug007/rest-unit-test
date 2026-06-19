@@ -130,8 +130,66 @@ h1 { margin: 0; color: var(--primary-color); }
 }
 #source-content {
     flex: 1;
-    overflow-y: auto;
-    overflow-x: auto;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+.source-view-wrapper {
+    display: grid;
+    grid-template-columns: 40px 1fr;
+    flex: 1;
+    min-height: 0;
+    background-color: var(--code-bg);
+    border: 1px solid var(--code-border);
+    border-radius: 4px;
+    overflow: auto;
+}
+.source-gutter {
+    grid-column: 1;
+    position: sticky;
+    left: 0;
+    z-index: 10;
+    width: 40px;
+    background-color: var(--table-header-bg);
+    border-right: 1px solid var(--code-border);
+    display: flex;
+    flex-direction: column;
+    padding: 0 0 15px 0;
+    margin-top: 28px;
+    user-select: none;
+    box-sizing: border-box;
+    font-family: 'Menlo', 'Monaco', 'Consolas', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+}
+#source-pre-container {
+    grid-column: 2;
+    min-width: 0;
+}
+#source-pre-container pre {
+    margin: 0;
+    border: none;
+    background: transparent;
+    padding: 15px;
+    padding-left: 10px;
+    overflow: visible;
+}
+#source-code {
+    font-family: 'Menlo', 'Monaco', 'Consolas', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre;
+    display: block;
+}
+.gutter-line {
+    height: 19.5px !important;
+    min-height: 19.5px !important;
+    flex-shrink: 0 !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
 }
 .source-panel h3 {
     margin-top: 0;
@@ -271,21 +329,17 @@ pre {
     display: inline-block;
     background-color: #f7df1e;
     color: black;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: bold;
-    padding: 1px 3px;
+    padding: 1px 2px;
     border-radius: 2px;
-    margin-right: 5px;
-    vertical-align: middle;
     line-height: 1;
 }
 .play-button {
     display: inline-block;
     color: #28a745;
     cursor: pointer;
-    margin-right: 5px;
-    font-size: 14px;
-    vertical-align: middle;
+    font-size: 12px;
     line-height: 1;
     transition: transform 0.1s;
 }

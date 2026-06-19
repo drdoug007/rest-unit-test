@@ -97,3 +97,4 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Updated `application.yaml` and `application-local.yaml` to provide default and local credentials (`username`, `password`) for HTTP tests, ensuring they are distinct from database credentials.
 - Implemented support for dynamic variables (`$uuid`, `$timestamp`, `$isoTimestamp`, `$randomInt`, `$random.integer`, `$random.float`, `$random.alphabetic`, `$random.alphanumeric`, `$random.hexadecimal`, `$random.email`) in `.http` files.
 - Implemented support for in-place variables using `@name = value` syntax, scoped to the `.http` file where they are declared.
+- Created `LICENSE-3RD-PARTY.md` to acknowledge the licenses and authors of third-party libraries used in the project.

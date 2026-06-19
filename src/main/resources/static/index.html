@@ -4,15 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>REST Unit Test Runner</title>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <link id="hljs-style" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/http.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/json.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/sql.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+    <script src="lib/marked.min.js"></script>
+    <script src="lib/html2pdf.bundle.min.js"></script>
+    <link id="hljs-style" rel="stylesheet" href="lib/highlight/styles/github.min.css">
+    <script src="lib/highlight/highlight.min.js"></script>
+    <script src="lib/highlight/languages/http.min.js"></script>
+    <script src="lib/highlight/languages/javascript.min.js"></script>
+    <script src="lib/highlight/languages/json.min.js"></script>
+    <script src="lib/highlight/languages/sql.min.js"></script>
+    <script src="lib/js-yaml.min.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -89,7 +89,12 @@
                 </div>
             </h3>
             <div id="source-content">
-                <p class="loading">Select a test to view its source.</p>
+                <div class="source-view-wrapper">
+                    <div id="source-gutter" class="source-gutter"></div>
+                    <div id="source-pre-container">
+                        <pre><code id="source-code" class="language-http"><span class="loading">Select a test to view its source.</span></code></pre>
+                    </div>
+                </div>
             </div>
             <textarea id="source-editor"></textarea>
         </div>
