@@ -1,0 +1,34 @@
+### In-place Variables test
+@myhost = example.org
+@port = 8080
+
+POST http://{{myhost}}:{{port}}/post
+Content-Type: application/json
+
+{
+  "host": "{{myhost}}",
+  "port": "{{port}}"
+}
+
+> {%
+    client.test("Request executed successfully", function () {
+        client.assert(response.status === 200, "Response status is not 200");
+    });
+    
+    const body = JSON.parse(response.body);
+    const data = JSON.parse(body.data);
+    
+    client.test("Variables should be resolved", function() {
+        client.assert(data.host === "example.org", "host not resolved correctly: " + data.host);
+        client.assert(data.port === "8080", "port not resolved correctly: " + data.port);
+    });
+%}
+
+### Second request in same file
+GET http://{{myhost}}:{{port}}/get
+
+> {%
+    client.test("Request executed successfully", function () {
+        client.assert(response.status === 200, "Response status is not 200");
+    });
+%}

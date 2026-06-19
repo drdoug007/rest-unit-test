@@ -1,0 +1,43 @@
+### Dynamic variables test
+POST https://httpbin.org/post
+Content-Type: application/json
+
+{
+  "uuid": "{{$uuid}}",
+  "randomUuid": "{{$random.uuid}}",
+  "timestamp": "{{$timestamp}}",
+  "isoTimestamp": "{{$isoTimestamp}}",
+  "randomInt": "{{$randomInt}}",
+  "randomInteger": "{{$random.integer(100, 200)}}",
+  "randomFloat": "{{$random.float(10.5, 20.5)}}",
+  "randomAlphabetic": "{{$random.alphabetic(10)}}",
+  "randomAlphanumeric": "{{$random.alphanumeric(10)}}",
+  "randomHexadecimal": "{{$random.hexadecimal(10)}}",
+  "randomEmail": "{{$random.email}}"
+}
+
+> {%
+    client.test("Request executed successfully", function () {
+        client.assert(response.status === 200, "Response status is not 200");
+    });
+    
+    const body = JSON.parse(response.body);
+    const data = JSON.parse(body.data);
+    
+    client.log("Resolved uuid: " + data.uuid);
+    client.log("Resolved randomUuid: " + data.randomUuid);
+    client.log("Resolved timestamp: " + data.timestamp);
+    client.log("Resolved isoTimestamp: " + data.isoTimestamp);
+    client.log("Resolved randomInt: " + data.randomInt);
+    client.log("Resolved randomInteger: " + data.randomInteger);
+    client.log("Resolved randomFloat: " + data.randomFloat);
+    client.log("Resolved randomAlphabetic: " + data.randomAlphabetic);
+    client.log("Resolved randomAlphanumeric: " + data.randomAlphanumeric);
+    client.log("Resolved randomHexadecimal: " + data.randomHexadecimal);
+    client.log("Resolved randomEmail: " + data.randomEmail);
+    
+    client.test("Variables should not be placeholders", function() {
+        client.assert(data.uuid !== "{{$uuid}}", "uuid not resolved");
+        client.assert(data.randomUuid !== "{{$random.uuid}}", "randomUuid not resolved");
+    });
+%}

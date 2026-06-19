@@ -23,7 +23,10 @@ import org.springframework.web.server.ResponseStatusException;
 import javax.sql.DataSource;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class RestTestService {
@@ -84,6 +87,7 @@ public class RestTestService {
 
     public String runTestWithContent(String testName, String content, Map<String, Object> globals) {
         try (org.graalvm.polyglot.Context context = graalJsService.createContext()) {
+            Map<String, String> inplaceVariables = parseInplaceVariables(content);
             List<HttpTest> tests = parseHttpFile(content);
             StringBuilder report = new StringBuilder();
             if (appProperties != null && appProperties.getEnvironment() != null) {
@@ -133,6 +137,12 @@ public class RestTestService {
                 });
             }
 
+            // Load in-place variables from the file content
+            inplaceVariables.forEach((k, v) -> {
+                requestJS.getVariables().set(k, v);
+                httpClientJS.getGlobal().set(k, v);
+            });
+
         // Load markdown.js helper into GraalJS context
         try {
             ClassPathResource markdownResource = new ClassPathResource("js/markdown.js");
@@ -164,6 +174,18 @@ public class RestTestService {
             log.error("Error running test {}: {}", testName, e.getMessage(), e);
             throw new RuntimeException(e);
         }
+    }
+
+    private Map<String, String> parseInplaceVariables(String content) {
+        Map<String, String> variables = new HashMap<>();
+        Pattern pattern = Pattern.compile("(?m)^@([^=\\s]+)\\s*=\\s*(.*)$");
+        Matcher matcher = pattern.matcher(content);
+        while (matcher.find()) {
+            String key = matcher.group(1).trim();
+            String value = matcher.group(2).trim();
+            variables.put(key, value);
+        }
+        return variables;
     }
 
     private List<HttpTest> parseHttpFile(String content) {
@@ -591,6 +613,122 @@ public class RestTestService {
                 result = result.replace("{{" + entry.getKey() + "}}", value);
             }
         }
+
+        // Resolve dynamic variables starting with $
+        result = resolveDynamicVariables(result);
+
         return result;
+    }
+
+    private String resolveDynamicVariables(String text) {
+        if (text == null) return null;
+        
+        // Pattern for {{$...}}
+        Pattern pattern = Pattern.compile("\\{\\{\\$(.+?)}}");
+        Matcher matcher = pattern.matcher(text);
+        StringBuilder sb = new StringBuilder();
+        Random random = new Random();
+
+        while (matcher.find()) {
+            String varName = matcher.group(1).trim();
+            String replacement = null;
+
+            if ("uuid".equals(varName) || "random.uuid".equals(varName)) {
+                replacement = UUID.randomUUID().toString();
+            } else if ("timestamp".equals(varName)) {
+                replacement = String.valueOf(Instant.now().getEpochSecond());
+            } else if ("isoTimestamp".equals(varName)) {
+                replacement = Instant.now().toString();
+            } else if ("randomInt".equals(varName)) {
+                replacement = String.valueOf(random.nextInt(1001));
+            } else if (varName.startsWith("random.integer")) {
+                replacement = resolveRandomInteger(varName, random);
+            } else if (varName.startsWith("random.float")) {
+                replacement = resolveRandomFloat(varName, random);
+            } else if (varName.startsWith("random.alphabetic")) {
+                replacement = resolveRandomAlphabetic(varName, random);
+            } else if (varName.startsWith("random.alphanumeric")) {
+                replacement = resolveRandomAlphanumeric(varName, random);
+            } else if (varName.startsWith("random.hexadecimal")) {
+                replacement = resolveRandomHexadecimal(varName, random);
+            } else if ("random.email".equals(varName)) {
+                replacement = generateRandomEmail(random);
+            }
+
+            if (replacement != null) {
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
+            } else {
+                matcher.appendReplacement(sb, Matcher.quoteReplacement(matcher.group(0)));
+            }
+        }
+        matcher.appendTail(sb);
+        return sb.toString();
+    }
+
+    private String resolveRandomInteger(String varName, Random random) {
+        Pattern p = Pattern.compile("random\\.integer\\s*\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*\\)");
+        Matcher m = p.matcher(varName);
+        if (m.find()) {
+            int from = Integer.parseInt(m.group(1));
+            int to = Integer.parseInt(m.group(2));
+            if (to > from) {
+                return String.valueOf(from + random.nextInt(to - from));
+            }
+        }
+        return String.valueOf(random.nextInt(1001));
+    }
+
+    private String resolveRandomFloat(String varName, Random random) {
+        Pattern p = Pattern.compile("random\\.float\\s*\\(\\s*([\\d.]+)\\s*,\\s*([\\d.]+)\\s*\\)");
+        Matcher m = p.matcher(varName);
+        if (m.find()) {
+            double from = Double.parseDouble(m.group(1));
+            double to = Double.parseDouble(m.group(2));
+            if (to > from) {
+                return String.valueOf(from + (to - from) * random.nextDouble());
+            }
+        }
+        return String.valueOf(random.nextDouble() * 1000);
+    }
+
+    private String resolveRandomAlphabetic(String varName, Random random) {
+        int length = extractLength(varName, 10);
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        return generateRandomString(chars, length, random);
+    }
+
+    private String resolveRandomAlphanumeric(String varName, Random random) {
+        int length = extractLength(varName, 10);
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_";
+        return generateRandomString(chars, length, random);
+    }
+
+    private String resolveRandomHexadecimal(String varName, Random random) {
+        int length = extractLength(varName, 10);
+        String chars = "0123456789abcdef";
+        return generateRandomString(chars, length, random);
+    }
+
+    private String generateRandomString(String chars, int length, Random random) {
+        if (length <= 0) length = 10;
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        return sb.toString();
+    }
+
+    private int extractLength(String varName, int defaultLength) {
+        Pattern p = Pattern.compile("\\(\\s*(\\d+)\\s*\\)");
+        Matcher m = p.matcher(varName);
+        if (m.find()) {
+            return Integer.parseInt(m.group(1));
+        }
+        return defaultLength;
+    }
+
+    private String generateRandomEmail(Random random) {
+        String chars = "abcdefghijklmnopqrstuvwxyz";
+        return generateRandomString(chars, 8, random) + "@" + generateRandomString(chars, 5, random) + ".com";
     }
 }
