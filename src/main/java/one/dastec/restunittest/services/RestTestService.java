@@ -1,6 +1,7 @@
 package one.dastec.restunittest.services;
 
 import one.dastec.restunittest.config.AppProperties;
+import one.dastec.restunittest.js.DomJS;
 import one.dastec.restunittest.js.HttpClientJS;
 import one.dastec.restunittest.js.RequestJS;
 import one.dastec.restunittest.js.ResponseJS;
@@ -429,9 +430,62 @@ public class RestTestService {
                     })
                     .toEntity(String.class);
 
+            // Handle JSON body if applicable
+            Object finalBody = responseEntity.getBody();
+            String contentType = responseEntity.getHeaders().getContentType() != null ? responseEntity.getHeaders().getContentType().toString() : "";
+            if (contentType.contains("json")) {
+                try {
+                    finalBody = context.eval("js", "JSON.parse").execute(responseEntity.getBody());
+                } catch (Exception e) {
+                    log.warn("Could not parse response body as JSON: {}", e.getMessage());
+                }
+            } else if (contentType.contains("xml") || contentType.contains("html")) {
+                try {
+                    DomJS.NodeWrapper doc = new DomJS.DOMParser().parseFromString(responseEntity.getBody(), contentType);
+                    finalBody = context.eval("js", "(function(javaNode) { " +
+                            "    var wrap = function(jn) { " +
+                            "      if (!jn) return null; " +
+                            "      var node = { " +
+                            "        get nodeName() { return jn.getNodeName(); }, " +
+                            "        get nodeValue() { return jn.getNodeValue(); }, " +
+                            "        get nodeType() { return jn.getNodeType(); }, " +
+                            "        get parentNode() { return wrap(jn.getParentNode()); }, " +
+                            "        get childNodes() { return jn.getChildNodes().toArray().map(wrap); }, " +
+                            "        get firstChild() { var c = jn.getChildNodes(); return c.size() > 0 ? wrap(c.get(0)) : null; }, " +
+                            "        get lastChild() { var c = jn.getChildNodes(); return c.size() > 0 ? wrap(c.get(c.size()-1)) : null; }, " +
+                            "        get nextSibling() { return wrap(jn.getNextSibling()); }, " +
+                            "        get previousSibling() { return wrap(jn.getPreviousSibling()); }, " +
+                            "        get textContent() { return jn.getTextContent(); }, " +
+                            "        get xml() { return jn.getXml(); }, " +
+                            "        get tagName() { return jn.getTagName(); }, " +
+                            "        get id() { return jn.getId(); }, " +
+                            "        get className() { return jn.getClassName(); }, " +
+                            "        get isConnected() { return jn.getParentNode() !== null || jn.getNodeType() === 9; }, " +
+                            "        getElementsByTagName: function(tag) { return jn.getElementsByTag(tag).toArray().map(wrap); }, " +
+                            "        getElementsByClassName: function(cls) { return jn.getElementsByClass(cls).toArray().map(wrap); }, " +
+                            "        getElementsByName: function(name) { return jn.getElementsByAttribute('name', name).toArray().map(wrap); }, " +
+                            "        getElementById: function(id) { return wrap(jn.getElementById(id)); }, " +
+                            "        createElement: function(tag) { return wrap(jn.createElement(tag)); }, " +
+                            "        hasChildNodes: function() { return jn.getChildNodes().size() > 0; }, " +
+                            "        cloneNode: function(deep) { return wrap(jn.node.shallowClone()); }, " + // jsoup clone deep by default, wrap needs work for deep
+                            "        contains: function(other) { return false; }, " + // Simplified
+                            "        isSameNode: function(other) { return other && other._jn && jn.node === other._jn.node; }, " +
+                            "        isEqualNode: function(other) { return other && other._jn && jn.node.equals(other._jn.node); }, " +
+                            "        _jn: jn " +
+                            "      }; " +
+                            "      return node; " +
+                            "    }; " +
+                            "    return wrap(javaNode); " +
+                            "})").execute(doc);
+                } catch (Exception e) {
+                    log.warn("Could not parse response body as DOM: {}", e.getMessage());
+                }
+            }
+
             ResponseJS responseJS = new ResponseJS(
                     responseEntity.getStatusCode().value(),
                     responseEntity.getHeaders().toSingleValueMap(),
+                    finalBody,
                     responseEntity.getBody()
             );
 
@@ -551,6 +605,8 @@ public class RestTestService {
             }
         });
 
+        context.getBindings("js").putMember("__domParser", new DomJS.DOMParser());
+
         // Map client.assert and other methods
         context.eval("js", "var client = { " +
                 "test: function(name, callback) { __client.test(name, callback); }," +
@@ -571,7 +627,44 @@ public class RestTestService {
                 "}," +
                 "sqlQuery: function(sql) { return __sqlQuery(sql); }" +
                 "};" +
-                "var jsonPath = function(json, path) { return __jsonPath(json, path); };");
+                "var jsonPath = function(json, path) { return __jsonPath(json, path); };" +
+                "var DOMParser = function() { " +
+                "  this.parseFromString = function(s, t) { " +
+                "    var javaNode = __domParser.parseFromString(s, t); " +
+                "    var wrap = function(jn) { " +
+                "      if (!jn) return null; " +
+                "      var node = { " +
+                "        get nodeName() { return jn.getNodeName(); }, " +
+                "        get nodeValue() { return jn.getNodeValue(); }, " +
+                "        get nodeType() { return jn.getNodeType(); }, " +
+                "        get parentNode() { return wrap(jn.getParentNode()); }, " +
+                "        get childNodes() { return jn.getChildNodes().toArray().map(wrap); }, " +
+                "        get firstChild() { var c = jn.getChildNodes(); return c.size() > 0 ? wrap(c.get(0)) : null; }, " +
+                "        get lastChild() { var c = jn.getChildNodes(); return c.size() > 0 ? wrap(c.get(c.size()-1)) : null; }, " +
+                "        get nextSibling() { return wrap(jn.getNextSibling()); }, " +
+                "        get previousSibling() { return wrap(jn.getPreviousSibling()); }, " +
+                "        get textContent() { return jn.getTextContent(); }, " +
+                "        get tagName() { return jn.getTagName(); }, " +
+                "        get id() { return jn.getId(); }, " +
+                "        get className() { return jn.getClassName(); }, " +
+                "        get isConnected() { return jn.getParentNode() !== null || jn.getNodeType() === 9; }, " +
+                "        getElementsByTagName: function(tag) { return jn.getElementsByTag(tag).toArray().map(wrap); }, " +
+                "        getElementsByClassName: function(cls) { return jn.getElementsByClass(cls).toArray().map(wrap); }, " +
+                "        getElementsByName: function(name) { return jn.getElementsByAttribute('name', name).toArray().map(wrap); }, " +
+                "        getElementById: function(id) { return wrap(jn.getElementById(id)); }, " +
+                "        createElement: function(tag) { return wrap(jn.createElement(tag)); }, " +
+                "        hasChildNodes: function() { return jn.getChildNodes().size() > 0; }, " +
+                "        cloneNode: function(deep) { return wrap(jn.node.shallowClone()); }, " +
+                "        contains: function(other) { return false; }, " +
+                "        isSameNode: function(other) { return other && other._jn && jn.node === other._jn.node; }, " +
+                "        isEqualNode: function(other) { return other && other._jn && jn.node.equals(other._jn.node); }, " +
+                "        _jn: jn " +
+                "      }; " +
+                "      return node; " +
+                "    }; " +
+                "    return wrap(javaNode); " +
+                "  }; " +
+                "};");
     }
 
     private void appendResults(HttpClientJS httpClientJS, StringBuilder report) {

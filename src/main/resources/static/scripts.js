@@ -969,7 +969,7 @@ function convertOpenApiToHttp(spec) {
                 // Response Body
                 http += '  if (response.body) {\n';
                 http += '    markdowner.heading(3, "Response Message");\n';
-                http += '    markdowner.codeBlock("json", JSON.stringify(JSON.parse(response.body), null, 2));\n';
+                http += '    markdowner.codeBlock("json", JSON.stringify(response.body, null, 2));\n';
                 http += '  }\n';
 
                 http += '%}\n\n';

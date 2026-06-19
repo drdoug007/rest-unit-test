@@ -98,3 +98,11 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Implemented support for dynamic variables (`$uuid`, `$timestamp`, `$isoTimestamp`, `$randomInt`, `$random.integer`, `$random.float`, `$random.alphabetic`, `$random.alphanumeric`, `$random.hexadecimal`, `$random.email`) in `.http` files.
 - Implemented support for in-place variables using `@name = value` syntax, scoped to the `.http` file where they are declared.
 - Created `LICENSE-3RD-PARTY.md` to acknowledge the licenses and authors of third-party libraries used in the project.
+- Implemented `response` object properties (`body`, `headers`, `status`, `contentType`) in JavaScript test blocks, including automatic JSON parsing of the response body.
+- Implemented DOM methods (`getElementsByTagName`, `getElementById`, `getElementsByClassName`, `getElementsByName`, `createElement`) and properties (`textContent`, `id`, `tagName`, `className`, etc.) for XML and HTML response bodies.
+- Integrated `DOMParser` into the JavaScript test environment for parsing XML and HTML strings.
+- Added `jsoup` dependency to support robust HTML and XML parsing and manipulation.
+- Added an XML example for `GET /api/cardealer` in `cardealer.http` with DOM-based assertions.
+- Fixed `TypeError` when calling `response.contentType.mimeType.contains` by adding `contains()`, `includes()`, and `toString()` helpers to the `ContentType` class in `ResponseJS`.
+- Enhanced `response.contentType` to support direct string comparison and inclusion checks.
+- Implemented automatic pretty-printing for XML response bodies when using `response.body.xml` in JavaScript tests, ensuring short text nodes remain on a single line.

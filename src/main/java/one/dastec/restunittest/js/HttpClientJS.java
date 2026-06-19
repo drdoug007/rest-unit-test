@@ -17,7 +17,11 @@ public class HttpClientJS {
             callback.run();
             testResults.add("✅ " + name);
         } catch (Throwable t) {
-            testResults.add("❌ " + name + ": " + t.getMessage());
+            String message = t.getMessage();
+            if (message != null && message.startsWith("Error: ")) {
+                message = message.substring(7);
+            }
+            testResults.add("❌ " + name + ": " + message);
         }
     }
 

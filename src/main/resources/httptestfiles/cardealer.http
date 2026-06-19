@@ -32,8 +32,40 @@ Authorization: Basic {{username}} {{password}}
     });
 
     markdowner.heading(3, "Response Message");
-    markdowner.codeBlock("json", JSON.stringify(JSON.parse(response.body), null, 2));
+    markdowner.codeBlock("json", JSON.stringify(response.body, null, 2));
 
+%}
+
+### GET all car dealers (XML)
+GET {{baseUrl}}/api/cardealer
+Accept: text/xml
+Authorization: Basic {{username}} {{password}}
+
+> {%
+    client.test("Request executed successfully", function () {
+        client.assert(response.status === 200, "Response status is not 200");
+    });
+
+    client.test("Response is XML", function () {
+        client.assert(response.contentType.mimeType.includes("xml"), "Expected XML response");
+    });
+
+    client.test("Response includes car dealers in XML", function () {
+        // The schema says it returns CarDealerDTO, likely wrapped in a root element or list
+        // Assuming a structure like <CarDealerDTOs><item><name>...</name></item></CarDealerDTOs>
+        // Or similar. Let's look for any element by tag name.
+        const dealers = response.body.getElementsByTagName("id");
+        client.assert(dealers.length > 0, "No dealers found in XML (no <id> tags)");
+    });
+
+    client.test("First dealer has a name", function () {
+        const names = response.body.getElementsByTagName("name");
+        client.assert(names.length > 0, "No <name> tags found");
+        client.assert(names[0].textContent.length > 0, "First dealer name is empty");
+    });
+
+    markdowner.heading(3, "XML Response Message");
+    markdowner.codeBlock("xml", response.body.xml);
 %}
 
 ### Adding car to dealer
@@ -66,7 +98,7 @@ Authorization: Basic {{username}} {{password}}
     });
 
     markdowner.heading(3, "Response Message");
-    markdowner.codeBlock("json", JSON.stringify(JSON.parse(response.body), null, 2));
+    markdowner.codeBlock("json", JSON.stringify(response.body, null, 2));
 
     const id = jsonPath(response.body, "$.id");
     const query = "SELECT id, make, model, color, price FROM car WHERE car.id = " + id;
@@ -93,7 +125,7 @@ Authorization: Basic {{username}} {{password}}
     });
 
     markdowner.heading(3, "Response Message");
-    markdowner.codeBlock("json", JSON.stringify(JSON.parse(response.body), null, 2));
+    markdowner.codeBlock("json", JSON.stringify(response.body, null, 2));
 
 %}
 
@@ -118,7 +150,7 @@ Authorization: Basic {{username}} {{password}}
     });
 
     markdowner.heading(3, "Response Message");
-    markdowner.codeBlock("json", JSON.stringify(JSON.parse(response.body), null, 2));
+    markdowner.codeBlock("json", JSON.stringify(response.body, null, 2));
 
 %}
 

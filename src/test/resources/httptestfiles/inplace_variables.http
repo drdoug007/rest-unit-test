@@ -15,7 +15,7 @@ Content-Type: application/json
         client.assert(response.status === 200, "Response status is not 200");
     });
     
-    const body = JSON.parse(response.body);
+    const body = response.body;
     const data = JSON.parse(body.data);
     
     client.test("Variables should be resolved", function() {
