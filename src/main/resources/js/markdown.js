@@ -42,6 +42,10 @@ export class Markdown {
         client.markdown("```" + language + "\n" + code + "\n```\n");
     }
 
+    pageBreak() {
+        this.raw('<div style="page-break-before: always;"></div>');
+    }
+
     formatSql(sql) {
         if (!sql) return sql;
 

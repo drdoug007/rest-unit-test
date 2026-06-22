@@ -312,7 +312,7 @@ function highlightHttpSource(codeElement) {
                 if (requestMatch) {
                     const [full, method, url] = requestMatch;
                     const rawLine = rawLines[index].trim();
-                    markerHtml = `<span class="play-button" title="Run this test" data-request-line="${escapeHtml(rawLine)}">▶</span>`;
+                    markerHtml = `<span class="play-button" title="Run this test" data-request-line="${escapeHtml(rawLine)}" data-line-index="${index}">▶</span>`;
                     processedLine = `<span class="hljs-keyword">${method}</span> <span class="hljs-title">${url}</span>`;
                 }
 
@@ -328,7 +328,8 @@ function highlightHttpSource(codeElement) {
                 btn.onclick = (e) => {
                     e.stopPropagation();
                     const rawLine = btn.getAttribute('data-request-line');
-                    runSingleRequest(rawLine);
+                    const lineIndex = parseInt(btn.getAttribute('data-line-index'));
+                    runSingleRequest(rawLine, lineIndex);
                 };
             });
         } else {
@@ -351,7 +352,7 @@ function highlightHttpSource(codeElement) {
     }
 }
 
-async function runSingleRequest(requestLine) {
+async function runSingleRequest(requestLine, lineIndex) {
     if (!lastSource) return;
     
     // Parse the full source to find the request block starting with this line
@@ -360,43 +361,83 @@ async function runSingleRequest(requestLine) {
     let found = false;
     const normalizedRequestLine = requestLine.trim();
     
-    for (let i = 0; i < lines.length; i++) {
-        if (lines[i].trim() === normalizedRequestLine) {
-            found = true;
-            // Backtrack to find pre-scripts and comments before the request
-            let start = i;
-            while (start > 0) {
-                const prevLine = lines[start - 1].trim();
-                if (prevLine.startsWith('###')) {
-                    start--;
-                    break;
+    // Use lineIndex if available to uniquely identify the request
+    if (lineIndex !== undefined && lines[lineIndex] && lines[lineIndex].trim() === normalizedRequestLine) {
+        let i = lineIndex;
+        found = true;
+        // Backtrack to find pre-scripts and comments before the request
+        let start = i;
+        while (start > 0) {
+            const prevLine = lines[start - 1].trim();
+            if (prevLine.startsWith('###')) {
+                start--;
+                break;
+            }
+            // Include pre-scripts, comments, and empty lines
+            if (prevLine.startsWith('< {%') || prevLine.startsWith('//') || prevLine === "") {
+                start--;
+            } else if (prevLine.endsWith('%}')) {
+                // If it's the end of a block, we need to find the start
+                let blockStart = start - 1;
+                while (blockStart > 0 && !lines[blockStart].trim().startsWith('< {%') && !lines[blockStart].trim().startsWith('> {%')) {
+                    blockStart--;
                 }
-                // Include pre-scripts, comments, and empty lines
-                if (prevLine.startsWith('< {%') || prevLine.startsWith('//') || prevLine === "") {
-                    start--;
-                } else if (prevLine.endsWith('%}')) {
-                    // If it's the end of a block, we need to find the start
-                    let blockStart = start - 1;
-                    while (blockStart > 0 && !lines[blockStart].trim().startsWith('< {%') && !lines[blockStart].trim().startsWith('> {%')) {
-                        blockStart--;
-                    }
-                    if (lines[blockStart].trim().startsWith('< {%')) {
-                        start = blockStart;
-                    } else {
-                        break;
-                    }
+                if (lines[blockStart].trim().startsWith('< {%')) {
+                    start = blockStart;
                 } else {
                     break;
                 }
+            } else {
+                break;
             }
-            
-            // Extract from start until next ### or end
-            requestContent = lines.slice(start, i + 1).join('\n');
-            for (let j = i + 1; j < lines.length; j++) {
-                if (lines[j].startsWith('###')) break;
-                requestContent += '\n' + lines[j];
+        }
+        
+        // Extract from start until next ### or end
+        requestContent = lines.slice(start, i + 1).join('\n');
+        for (let j = i + 1; j < lines.length; j++) {
+            if (lines[j].startsWith('###')) break;
+            requestContent += '\n' + lines[j];
+        }
+    } else {
+        // Fallback to original search logic
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].trim() === normalizedRequestLine) {
+                found = true;
+                // Backtrack to find pre-scripts and comments before the request
+                let start = i;
+                while (start > 0) {
+                    const prevLine = lines[start - 1].trim();
+                    if (prevLine.startsWith('###')) {
+                        start--;
+                        break;
+                    }
+                    // Include pre-scripts, comments, and empty lines
+                    if (prevLine.startsWith('< {%') || prevLine.startsWith('//') || prevLine === "") {
+                        start--;
+                    } else if (prevLine.endsWith('%}')) {
+                        // If it's the end of a block, we need to find the start
+                        let blockStart = start - 1;
+                        while (blockStart > 0 && !lines[blockStart].trim().startsWith('< {%') && !lines[blockStart].trim().startsWith('> {%')) {
+                            blockStart--;
+                        }
+                        if (lines[blockStart].trim().startsWith('< {%')) {
+                            start = blockStart;
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+                
+                // Extract from start until next ### or end
+                requestContent = lines.slice(start, i + 1).join('\n');
+                for (let j = i + 1; j < lines.length; j++) {
+                    if (lines[j].startsWith('###')) break;
+                    requestContent += '\n' + lines[j];
+                }
+                break;
             }
-            break;
         }
     }
 
