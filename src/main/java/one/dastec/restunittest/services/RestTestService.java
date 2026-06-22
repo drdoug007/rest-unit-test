@@ -428,10 +428,12 @@ public class RestTestService {
                     report.append("### Execution ").append(i + 1).append(" (`").append(firstCollectionVar)
                             .append("` = `").append(currentVal).append("`)\n\n");
                     
+                    requestJS.setIteration(i);
                     executeSingleRequest(test, iterationVars, requestJS, httpClientJS, report, context);
                     report.append("\n");
                 }
             } else {
+                requestJS.setIteration(0);
                 executeSingleRequest(test, allVars, requestJS, httpClientJS, report, context);
             }
 
@@ -446,6 +448,28 @@ public class RestTestService {
     private void executeSingleRequest(HttpTest test, Map<String, Object> allVars, RequestJS requestJS, HttpClientJS httpClientJS, StringBuilder report, org.graalvm.polyglot.Context context) {
         String testUrl = test.getUrl();
         try {
+            // Collect template values for request.templateValue(index)
+            List<Object> templateValues = new ArrayList<>();
+            Pattern varPattern = Pattern.compile("\\{\\{(.+?)}}");
+            
+            if (test.getUrl() != null) {
+                Matcher m = varPattern.matcher(test.getUrl());
+                while (m.find()) {
+                    String varName = m.group(1).trim();
+                    templateValues.add(allVars.get(varName));
+                }
+            }
+            if (test.getBody() != null) {
+                Matcher m = varPattern.matcher(test.getBody());
+                while (m.find()) {
+                    String varName = m.group(1).trim();
+                    templateValues.add(allVars.get(varName));
+                }
+            }
+            // Headers are a map, and their order might not be strictly preserved or defined for templateValue
+            // but the issue description shows it for body. Usually, it's URL then body.
+            requestJS.setTemplateValues(templateValues);
+
             String url = resolveVariables(test.getUrl(), allVars);
             if (url == null || url.trim().isEmpty()) {
                 log.error("Request URL is missing for test: {}. Method: {}, Headers: {}, Body: {}", test.getName(), test.getMethod(), test.getHeaders(), test.getBody());

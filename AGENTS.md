@@ -110,3 +110,4 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Renamed `markdowner.description(text)` to `markdowner.raw(text)` to better reflect that it allows adding raw Markdown content.
 - Implemented automatic masking of `Authorization` header credentials with `*` in reports and logs.
 - Implemented collection iteration: sending separate HTTP requests for each item when a variable is a collection (array/list).
+- Enhanced collection iteration with `request.iteration()` and `request.templateValue(index)` methods in JavaScript scripts.
