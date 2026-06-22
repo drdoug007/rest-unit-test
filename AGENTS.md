@@ -109,3 +109,4 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Enhanced `markdowner.codeBlock(language, code, prettyPrint)` to support optional SQL pretty-printing when the language is "sql" and `prettyPrint` is true.
 - Renamed `markdowner.description(text)` to `markdowner.raw(text)` to better reflect that it allows adding raw Markdown content.
 - Implemented automatic masking of `Authorization` header credentials with `*` in reports and logs.
+- Implemented collection iteration: sending separate HTTP requests for each item when a variable is a collection (array/list).

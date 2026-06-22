@@ -332,7 +332,6 @@ public class RestTestService {
     }
 
     private void executeTest(HttpTest test, RequestJS requestJS, HttpClientJS httpClientJS, StringBuilder report, org.graalvm.polyglot.Context context) {
-        String testUrl = test.getUrl();
         try {
             // 1. Pre-actions (JS and SQL in order)
             for (HttpTest.PreAction action : test.getPreActions()) {
@@ -371,6 +370,82 @@ public class RestTestService {
                 }
             });
 
+            // Identify if any variable used in the request is a collection
+            String urlTemplate = test.getUrl();
+            String bodyTemplate = test.getBody();
+            Map<String, String> headerTemplates = test.getHeaders();
+            
+            String firstCollectionVar = null;
+            List<Object> collectionValues = null;
+
+            // Pattern for {{varName}}
+            Pattern varPattern = Pattern.compile("\\{\\{(.+?)}}");
+            
+            // Collect all used variable names
+            Set<String> usedVars = new HashSet<>();
+            if (urlTemplate != null) {
+                Matcher m = varPattern.matcher(urlTemplate);
+                while (m.find()) usedVars.add(m.group(1).trim());
+            }
+            if (bodyTemplate != null) {
+                Matcher m = varPattern.matcher(bodyTemplate);
+                while (m.find()) usedVars.add(m.group(1).trim());
+            }
+            headerTemplates.values().forEach(v -> {
+                Matcher m = varPattern.matcher(v);
+                while (m.find()) usedVars.add(m.group(1).trim());
+            });
+
+            for (String varName : usedVars) {
+                Object val = allVars.get(varName);
+                if (val instanceof List) {
+                    firstCollectionVar = varName;
+                    collectionValues = (List<Object>) val;
+                    break;
+                } else if (val != null && val.getClass().isArray()) {
+                    firstCollectionVar = varName;
+                    collectionValues = Arrays.asList((Object[]) val);
+                    break;
+                } else if (val instanceof org.graalvm.polyglot.Value && ((org.graalvm.polyglot.Value) val).hasArrayElements()) {
+                    firstCollectionVar = varName;
+                    org.graalvm.polyglot.Value polyVal = (org.graalvm.polyglot.Value) val;
+                    collectionValues = new ArrayList<>();
+                    for (int i = 0; i < polyVal.getArraySize(); i++) {
+                        collectionValues.add(polyVal.getArrayElement(i));
+                    }
+                    break;
+                }
+            }
+
+            if (firstCollectionVar != null) {
+                report.append("Iterating over variable `").append(firstCollectionVar).append("` (")
+                        .append(collectionValues.size()).append(" items)\n\n");
+                for (int i = 0; i < collectionValues.size(); i++) {
+                    Object currentVal = collectionValues.get(i);
+                    Map<String, Object> iterationVars = new HashMap<>(allVars);
+                    iterationVars.put(firstCollectionVar, currentVal);
+                    
+                    report.append("### Execution ").append(i + 1).append(" (`").append(firstCollectionVar)
+                            .append("` = `").append(currentVal).append("`)\n\n");
+                    
+                    executeSingleRequest(test, iterationVars, requestJS, httpClientJS, report, context);
+                    report.append("\n");
+                }
+            } else {
+                executeSingleRequest(test, allVars, requestJS, httpClientJS, report, context);
+            }
+
+        } catch (Exception e) {
+            report.append("❌ **Error during execution:** ").append(e.getMessage()).append("\n");
+            log.error("Error during execution", e);
+        } finally {
+            appendResults(httpClientJS, report);
+        }
+    }
+
+    private void executeSingleRequest(HttpTest test, Map<String, Object> allVars, RequestJS requestJS, HttpClientJS httpClientJS, StringBuilder report, org.graalvm.polyglot.Context context) {
+        String testUrl = test.getUrl();
+        try {
             String url = resolveVariables(test.getUrl(), allVars);
             if (url == null || url.trim().isEmpty()) {
                 log.error("Request URL is missing for test: {}. Method: {}, Headers: {}, Body: {}", test.getName(), test.getMethod(), test.getHeaders(), test.getBody());
@@ -522,8 +597,6 @@ public class RestTestService {
         } catch (Exception e) {
             report.append("❌ **Error during execution:** ").append(e.getMessage()).append("\n");
             log.error("Error during execution", e);
-        } finally {
-            appendResults(httpClientJS, report);
         }
     }
 
