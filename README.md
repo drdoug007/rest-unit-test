@@ -21,6 +21,7 @@ A Spring Boot-based framework for executing HTTP-based unit tests with integrate
 - **Credential Masking**: Automatically masks `Authorization` headers with `*` in reports and logs to protect sensitive information.
 - **Customizable Timeouts**: Set per-request timeouts using `@timeout` and `@connection-timeout` comments (e.g., `# @timeout 10 s`).
 - **Execution Delay**: Use `sleep(ms)`, `setTimeout(callback, ms)`, and `clearTimeout(id)` in pre-request and post-request scripts to delay execution or handle timers.
+- **Base64 Encoding/Decoding**: Standard `btoa()` and `atob()` methods available globally and via `Window` object for Base64 manipulation.
 - **URLSearchParams Support**: Standard `URLSearchParams` object available in scripts for easy query string manipulation, supporting constructors (string, object, array), methods (`append`, `get`, `set`, etc.), and iterators.
 - **Collection Iteration**: Automatically iterate over collection variables (e.g., `[1,2,3]`) in URLs, headers, or bodies, sending separate requests for each item. Access the current state using `request.iteration()` and `request.templateValue(index)`.
 - **Custom Markdown Helper**: A `markdowner` helper available in JavaScript to add headings, tables, pretty-printed code blocks (including SQL), and raw Markdown content directly to reports.

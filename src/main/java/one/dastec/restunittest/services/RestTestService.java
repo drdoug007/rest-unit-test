@@ -793,6 +793,9 @@ public class RestTestService {
                 "var setTimeout = function(cb, ms) { return __utils.setTimeout(cb, ms); };" +
                 "var clearTimeout = function(id) { return __utils.clearTimeout(id); };" +
                 "var jsonPath = function(json, path) { return __jsonPath(json, path); };" +
+                "var btoa = function(s) { return __utils.btoa(s); };" +
+                "var atob = function(s) { return __utils.atob(s); };" +
+                "var Window = { btoa: btoa, atob: atob };" +
                 "var URLSearchParams = function(init) { " +
                 "  var javaObj = new __UrlSearchParams(init); " +
                 "  this.append = function(n, v) { javaObj.append(n, v); }; " +

@@ -1,5 +1,7 @@
 package one.dastec.restunittest.js;
 
+import java.util.Base64;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -41,6 +43,20 @@ public class UtilsJS {
         java.util.concurrent.ScheduledFuture<?> future = timers.remove(id);
         if (future != null) {
             future.cancel(false);
+        }
+    }
+
+    public String btoa(String s) {
+        if (s == null) return "";
+        return Base64.getEncoder().encodeToString(s.getBytes(StandardCharsets.UTF_8));
+    }
+
+    public String atob(String s) {
+        if (s == null) return "";
+        try {
+            return new String(Base64.getDecoder().decode(s), StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            return "";
         }
     }
 
