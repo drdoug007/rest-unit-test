@@ -116,3 +116,5 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Implemented `URLSearchParams` object in JavaScript scripts for query string manipulation.
 - Implemented `btoa()` and `atob()` methods for Base64 encoding and decoding.
 - Implemented XPath support for XML responses in JavaScript test environment.
+- Integrated Spring Security with Basic Authentication and Form Login support.
+- Configured selective security rules to protect custom test execution while allowing public access to test listings and source code.
