@@ -113,3 +113,4 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Enhanced collection iteration with `request.iteration()` and `request.templateValue(index)` methods in JavaScript scripts.
 - Implemented customizable HTTP request timeouts via `@timeout` and `@connection-timeout` comment tags.
 - Implemented `sleep(ms)`, `setTimeout(callback, ms)`, and `clearTimeout(id)` in JavaScript scripts.
+- Implemented `URLSearchParams` object in JavaScript scripts for query string manipulation.

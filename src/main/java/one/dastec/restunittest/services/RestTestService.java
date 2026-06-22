@@ -5,6 +5,7 @@ import one.dastec.restunittest.js.DomJS;
 import one.dastec.restunittest.js.HttpClientJS;
 import one.dastec.restunittest.js.RequestJS;
 import one.dastec.restunittest.js.UtilsJS;
+import one.dastec.restunittest.js.UrlSearchParamsJS;
 import one.dastec.restunittest.js.ResponseJS;
 import one.dastec.restunittest.models.HttpTest;
 import com.jayway.jsonpath.JsonPath;
@@ -721,6 +722,7 @@ public class RestTestService {
         context.getBindings("js").putMember("request", requestJS);
         context.getBindings("js").putMember("__client", httpClientJS);
         context.getBindings("js").putMember("__utils", utilsJS);
+        context.getBindings("js").putMember("__UrlSearchParams", UrlSearchParamsJS.class);
         if (responseJS != null) {
             context.getBindings("js").putMember("response", responseJS);
         } else {
@@ -791,6 +793,21 @@ public class RestTestService {
                 "var setTimeout = function(cb, ms) { return __utils.setTimeout(cb, ms); };" +
                 "var clearTimeout = function(id) { return __utils.clearTimeout(id); };" +
                 "var jsonPath = function(json, path) { return __jsonPath(json, path); };" +
+                "var URLSearchParams = function(init) { " +
+                "  var javaObj = new __UrlSearchParams(init); " +
+                "  this.append = function(n, v) { javaObj.append(n, v); }; " +
+                "  this.delete = function(n) { javaObj.delete(n); }; " +
+                "  this.get = function(n) { return javaObj.get(n); }; " +
+                "  this.getAll = function(n) { return javaObj.getAll(n); }; " +
+                "  this.has = function(n) { return javaObj.has(n); }; " +
+                "  this.set = function(n, v) { javaObj.set(n, v); }; " +
+                "  this.sort = function() { javaObj.sort(); }; " +
+                "  this.toString = function() { return javaObj.toString(); }; " +
+                "  this.keys = function*() { var k = javaObj.keys(); for(var i=0; i<k.size(); i++) yield k.get(i); }; " +
+                "  this.values = function*() { var v = javaObj.values(); for(var i=0; i<v.size(); i++) yield v.get(i); }; " +
+                "  this.entries = function*() { var e = javaObj.entries(); for(var i=0; i<e.size(); i++) yield e.get(i); }; " +
+                "  this[Symbol.iterator] = this.entries; " +
+                "};" +
                 "var DOMParser = function() { " +
                 "  this.parseFromString = function(s, t) { " +
                 "    var javaNode = __domParser.parseFromString(s, t); " +
