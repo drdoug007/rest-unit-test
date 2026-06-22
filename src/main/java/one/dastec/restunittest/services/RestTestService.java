@@ -836,11 +836,12 @@ public class RestTestService {
                 "        getElementsByName: function(name) { return jn.getElementsByAttribute('name', name).toArray().map(wrap); }, " +
                 "        getElementById: function(id) { return wrap(jn.getElementById(id)); }, " +
                 "        createElement: function(tag) { return wrap(jn.createElement(tag)); }, " +
+                "        xpath: function(expression) { return jn.xpath(expression).toArray().map(wrap); }, " +
                 "        hasChildNodes: function() { return jn.getChildNodes().size() > 0; }, " +
-                "        cloneNode: function(deep) { return wrap(jn.node.shallowClone()); }, " +
+                "        cloneNode: function(deep) { var n = jn.getNode(); return wrap(n.shallowClone ? n.shallowClone() : n.cloneNode(deep)); }, " +
                 "        contains: function(other) { return false; }, " +
-                "        isSameNode: function(other) { return other && other._jn && jn.node === other._jn.node; }, " +
-                "        isEqualNode: function(other) { return other && other._jn && jn.node.equals(other._jn.node); }, " +
+                "        isSameNode: function(other) { return other && other._jn && (jn.getNode() === other._jn.getNode()); }, " +
+                "        isEqualNode: function(other) { return other && other._jn && (jn.getNode().equals(other._jn.getNode())); }, " +
                 "        _jn: jn " +
                 "      }; " +
                 "      return node; " +

@@ -115,3 +115,4 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Implemented `sleep(ms)`, `setTimeout(callback, ms)`, and `clearTimeout(id)` in JavaScript scripts.
 - Implemented `URLSearchParams` object in JavaScript scripts for query string manipulation.
 - Implemented `btoa()` and `atob()` methods for Base64 encoding and decoding.
+- Implemented XPath support for XML responses in JavaScript test environment.
