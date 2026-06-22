@@ -4,6 +4,7 @@ import one.dastec.restunittest.config.AppProperties;
 import one.dastec.restunittest.js.DomJS;
 import one.dastec.restunittest.js.HttpClientJS;
 import one.dastec.restunittest.js.RequestJS;
+import one.dastec.restunittest.js.UtilsJS;
 import one.dastec.restunittest.js.ResponseJS;
 import one.dastec.restunittest.models.HttpTest;
 import com.jayway.jsonpath.JsonPath;
@@ -40,6 +41,8 @@ public class RestTestService {
     private final GraalJsService graalJsService;
     private final AppProperties appProperties;
 
+
+    private final UtilsJS utilsJS = new UtilsJS();
 
     public RestTestService(DataSource dataSource, JdbcTemplate jdbcTemplate, RestClient.Builder builder, GraalJsService graalJsService, AppProperties appProperties) {
         this.jdbcTemplate = jdbcTemplate;
@@ -90,6 +93,7 @@ public class RestTestService {
 
     public String runTestWithContent(String testName, String content, Map<String, Object> globals) {
         try (org.graalvm.polyglot.Context context = graalJsService.createContext()) {
+            // ... existing code ...
             Map<String, String> inplaceVariables = parseInplaceVariables(content);
             List<HttpTest> tests = parseHttpFile(content);
             StringBuilder report = new StringBuilder();
@@ -716,6 +720,7 @@ public class RestTestService {
     private void setupGraalJsContext(RequestJS requestJS, HttpClientJS httpClientJS, ResponseJS responseJS, org.graalvm.polyglot.Context context) {
         context.getBindings("js").putMember("request", requestJS);
         context.getBindings("js").putMember("__client", httpClientJS);
+        context.getBindings("js").putMember("__utils", utilsJS);
         if (responseJS != null) {
             context.getBindings("js").putMember("response", responseJS);
         } else {
@@ -782,6 +787,9 @@ public class RestTestService {
                 "}," +
                 "sqlQuery: function(sql) { return __sqlQuery(sql); }" +
                 "};" +
+                "var sleep = function(ms) { return __utils.sleep(ms); };" +
+                "var setTimeout = function(cb, ms) { return __utils.setTimeout(cb, ms); };" +
+                "var clearTimeout = function(id) { return __utils.clearTimeout(id); };" +
                 "var jsonPath = function(json, path) { return __jsonPath(json, path); };" +
                 "var DOMParser = function() { " +
                 "  this.parseFromString = function(s, t) { " +
