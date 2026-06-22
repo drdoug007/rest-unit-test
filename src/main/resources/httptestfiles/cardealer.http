@@ -1,7 +1,9 @@
 ### GET request to example server
 < {%
     markdowner.heading(3, "Before: TABLE: CARDEALERS");
-    const result = client.sqlQuery("SELECT id, name, address FROM car_dealer");
+    const sql = "SELECT id, name, address FROM car_dealer";
+    const result = client.sqlQuery(sql);
+    markdowner.codeBlock("sql", sql, true);
     markdowner.table(result.columns, result.data);
     client.global.set("ResultSet", result.data);
 %}

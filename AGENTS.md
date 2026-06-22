@@ -106,3 +106,5 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Fixed `TypeError` when calling `response.contentType.mimeType.contains` by adding `contains()`, `includes()`, and `toString()` helpers to the `ContentType` class in `ResponseJS`.
 - Enhanced `response.contentType` to support direct string comparison and inclusion checks.
 - Implemented automatic pretty-printing for XML response bodies when using `response.body.xml` in JavaScript tests, ensuring short text nodes remain on a single line.
+- Enhanced `markdowner.codeBlock(language, code, prettyPrint)` to support optional SQL pretty-printing when the language is "sql" and `prettyPrint` is true.
+- Renamed `markdowner.description(text)` to `markdowner.raw(text)` to better reflect that it allows adding raw Markdown content.
