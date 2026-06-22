@@ -19,6 +19,7 @@ A Spring Boot-based framework for executing HTTP-based unit tests with integrate
 - **Dynamic Variables**: Built-in support for dynamic values like `{{$uuid}}`, `{{$timestamp}}`, `{{$randomInt}}`, etc.
 - **Markdown Reports**: Automatically generates detailed reports in Markdown format with pretty-printed JSON and left-aligned table headers.
 - **Credential Masking**: Automatically masks `Authorization` headers with `*` in reports and logs to protect sensitive information.
+- **Customizable Timeouts**: Set per-request timeouts using `@timeout` and `@connection-timeout` comments (e.g., `# @timeout 10 s`).
 - **Collection Iteration**: Automatically iterate over collection variables (e.g., `[1,2,3]`) in URLs, headers, or bodies, sending separate requests for each item. Access the current state using `request.iteration()` and `request.templateValue(index)`.
 - **Custom Markdown Helper**: A `markdowner` helper available in JavaScript to add headings, tables, pretty-printed code blocks (including SQL), and raw Markdown content directly to reports.
 - **Compatibility Aliases**: Supports `client.variables.global` as an alias for `client.global` for better compatibility with other REST clients.

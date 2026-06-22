@@ -14,6 +14,8 @@ public class HttpTest {
     private String body;
     private String sqlScript;
     private String postScript;
+    private Integer timeout;
+    private Integer connectionTimeout;
     private List<PreAction> preActions = new ArrayList<>();
 
     public static class PreAction {
@@ -46,6 +48,10 @@ public class HttpTest {
     public void setSqlScript(String sqlScript) { this.sqlScript = sqlScript; }
     public String getPostScript() { return postScript; }
     public void setPostScript(String postScript) { this.postScript = postScript; }
+    public Integer getTimeout() { return timeout; }
+    public void setTimeout(Integer timeout) { this.timeout = timeout; }
+    public Integer getConnectionTimeout() { return connectionTimeout; }
+    public void setConnectionTimeout(Integer connectionTimeout) { this.connectionTimeout = connectionTimeout; }
     public List<PreAction> getPreActions() { return preActions; }
     public void setPreActions(List<PreAction> preActions) { this.preActions = preActions; }
 }

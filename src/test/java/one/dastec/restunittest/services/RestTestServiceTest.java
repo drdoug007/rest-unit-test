@@ -52,6 +52,7 @@ public class RestTestServiceTest {
         appProperties = new AppProperties();
         appProperties.getEnvironment().setName("TestEnv");
 
+        when(builder.clone()).thenReturn(builder);
         when(builder.build()).thenReturn(restClient);
         when(restClient.method(any())).thenReturn(requestBodyUriSpec);
         when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodyUriSpec);

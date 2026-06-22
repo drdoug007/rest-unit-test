@@ -111,3 +111,4 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Implemented automatic masking of `Authorization` header credentials with `*` in reports and logs.
 - Implemented collection iteration: sending separate HTTP requests for each item when a variable is a collection (array/list).
 - Enhanced collection iteration with `request.iteration()` and `request.templateValue(index)` methods in JavaScript scripts.
+- Implemented customizable HTTP request timeouts via `@timeout` and `@connection-timeout` comment tags.

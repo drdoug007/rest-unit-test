@@ -14,6 +14,8 @@ import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.ClientHttpRequestFactory;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
 import org.springframework.jdbc.support.rowset.SqlRowSetMetaData;
@@ -200,6 +202,29 @@ public class RestTestService {
         return tests;
     }
 
+    private Integer parseTimeout(String value) {
+        if (value == null || value.isEmpty()) return null;
+        try {
+            String numericPart = value.replaceAll("[^0-9]", "").trim();
+            String unitPart = value.replaceAll("[0-9]", "").trim().toLowerCase();
+            
+            if (numericPart.isEmpty()) return null;
+            int numericValue = Integer.parseInt(numericPart);
+            
+            if (unitPart.equals("ms")) {
+                return numericValue;
+            } else if (unitPart.equals("m")) {
+                return numericValue * 60 * 1000;
+            } else {
+                // Default to seconds
+                return numericValue * 1000;
+            }
+        } catch (Exception e) {
+            log.warn("Could not parse timeout value: {}", value);
+            return null;
+        }
+    }
+
     private HttpTest parseBlock(String block) {
         HttpTest test = new HttpTest();
         String[] lines = block.split("\\r?\\n");
@@ -213,6 +238,19 @@ public class RestTestService {
         }
         
         if (firstNonEmptyLine == -1) return test;
+
+        // Parse timeouts from comments before the request
+        for (int i = 0; i < lines.length; i++) {
+            String line = lines[i].trim();
+            if (line.startsWith("#") || line.startsWith("//")) {
+                String comment = line.substring(line.startsWith("#") ? 1 : 2).trim();
+                if (comment.startsWith("@timeout")) {
+                    test.setTimeout(parseTimeout(comment.substring(8).trim()));
+                } else if (comment.startsWith("@connection-timeout")) {
+                    test.setConnectionTimeout(parseTimeout(comment.substring(19).trim()));
+                }
+            }
+        }
 
         String firstLine = lines[firstNonEmptyLine].trim();
         String cleanFirstLine = firstLine.replaceAll("^###", "").trim();
@@ -517,7 +555,18 @@ public class RestTestService {
                 report.append("**Request Body:**\n\n```json\n").append(body).append("\n```\n\n");
             }
 
-            RestClient client = builder.build();
+            RestClient.Builder perRequestBuilder = builder.clone();
+            if (test.getTimeout() != null || test.getConnectionTimeout() != null) {
+                SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+                if (test.getTimeout() != null) {
+                    factory.setReadTimeout(test.getTimeout());
+                }
+                if (test.getConnectionTimeout() != null) {
+                    factory.setConnectTimeout(test.getConnectionTimeout());
+                }
+                perRequestBuilder.requestFactory(factory);
+            }
+            RestClient client = perRequestBuilder.build();
             Map<String, String> maskedHeaders = new HashMap<>(headers);
             if (maskedHeaders.containsKey("Authorization")) {
                 maskedHeaders.put("Authorization", "************");
