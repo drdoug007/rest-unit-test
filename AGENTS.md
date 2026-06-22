@@ -108,3 +108,4 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Implemented automatic pretty-printing for XML response bodies when using `response.body.xml` in JavaScript tests, ensuring short text nodes remain on a single line.
 - Enhanced `markdowner.codeBlock(language, code, prettyPrint)` to support optional SQL pretty-printing when the language is "sql" and `prettyPrint` is true.
 - Renamed `markdowner.description(text)` to `markdowner.raw(text)` to better reflect that it allows adding raw Markdown content.
+- Implemented automatic masking of `Authorization` header credentials with `*` in reports and logs.

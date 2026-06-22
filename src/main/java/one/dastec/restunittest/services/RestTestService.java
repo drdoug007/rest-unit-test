@@ -404,7 +404,13 @@ public class RestTestService {
 
             if (!headers.isEmpty()) {
                 report.append("**Request Headers:**\n\n");
-                headers.forEach((k, v) -> report.append("- ").append(k).append(": ").append(v).append("\n"));
+                headers.forEach((k, v) -> {
+                    String valueToDisplay = v;
+                    if (k.equalsIgnoreCase("Authorization")) {
+                        valueToDisplay = "************";
+                    }
+                    report.append("- ").append(k).append(": ").append(valueToDisplay).append("\n");
+                });
                 report.append("\n");
             }
 
@@ -412,9 +418,12 @@ public class RestTestService {
                 report.append("**Request Body:**\n\n```json\n").append(body).append("\n```\n\n");
             }
 
-            // 3. Execute HTTP Request
             RestClient client = builder.build();
-            log.info("Executing request: {} {} headers: {} body: {}", method, url, headers, body);
+            Map<String, String> maskedHeaders = new HashMap<>(headers);
+            if (maskedHeaders.containsKey("Authorization")) {
+                maskedHeaders.put("Authorization", "************");
+            }
+            log.info("Executing request: {} {} headers: {} body: {}", method, url, maskedHeaders, body);
             RestClient.RequestBodySpec requestSpec = client.method(org.springframework.http.HttpMethod.valueOf(method))
                     .uri(url);
             headers.forEach(requestSpec::header);
