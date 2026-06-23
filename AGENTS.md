@@ -122,3 +122,4 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Implemented logout functionality with automatic redirection to the login page.
 - Created a custom inline login form with the same look and feel as the application, including light/dark mode support.
 - Fixed a redirection issue where users were sent to an error page after login by forcing a redirect to the root URL.
+- Fixed a `ERR_TOO_MANY_REDIRECTS` issue by permitting unauthenticated access to `login.html`, which was previously blocked and causing a redirect loop during authentication.
