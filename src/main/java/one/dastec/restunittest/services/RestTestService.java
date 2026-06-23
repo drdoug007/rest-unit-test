@@ -232,6 +232,21 @@ public class RestTestService {
         }
     }
 
+    private boolean isRequestLine(String line) {
+        String trimmedLine = line.trim();
+        if (trimmedLine.isEmpty()) return false;
+        String[] parts = trimmedLine.split("\\s+");
+        if (parts.length >= 2) {
+            String method = parts[0];
+            String url = parts[1];
+            if (method.matches("^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)$")) {
+                // To be a valid request line, the second part should look like a URL or a variable
+                return url.startsWith("http") || url.startsWith("{{") || url.contains("/");
+            }
+        }
+        return false;
+    }
+
     private HttpTest parseBlock(String block) {
         HttpTest test = new HttpTest();
         String[] lines = block.split("\\r?\\n");
@@ -285,8 +300,8 @@ public class RestTestService {
             if (l.isEmpty()) continue;
             if (l.startsWith("< {%") || l.startsWith("> {%") || l.startsWith("#") || l.startsWith("//") || l.startsWith("%}")) continue;
             
-            String[] parts = l.split("\\s+");
-            if (parts.length >= 2 && parts[0].matches("^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)$")) {
+            if (isRequestLine(l)) {
+                String[] parts = l.split("\\s+");
                 method = parts[0];
                 url = parts[1];
                 break;
@@ -297,6 +312,7 @@ public class RestTestService {
 
         int startParsingFrom = firstNonEmptyLine;
         StringBuilder currentScript = new StringBuilder();
+        boolean requestLineFound = false;
 
         for (int i = startParsingFrom; i < lines.length; i++) {
             String line = lines[i];
@@ -347,16 +363,20 @@ public class RestTestService {
                 currentScript.append(line).append("\n");
             } else if (mode.equals("NONE")) {
                 if (trimmedLine.isEmpty()) {
-                    if (method != null) {
+                    if (requestLineFound) {
                         mode = "REQUEST_BODY";
                     }
                     continue;
                 }
-                if (method == null) {
-                    String[] parts = trimmedLine.split("\\s+");
-                    if (parts.length >= 2 && parts[0].matches("^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)$")) {
+                if (trimmedLine.startsWith("@")) {
+                    continue;
+                }
+                if (!requestLineFound) {
+                    if (isRequestLine(trimmedLine)) {
+                        String[] parts = trimmedLine.split("\\s+");
                         method = parts[0];
                         url = parts[1];
+                        requestLineFound = true;
                     }
                 } else if (trimmedLine.contains(":") && !trimmedLine.startsWith("//") && !trimmedLine.startsWith("/*")) {
                     int colonIndex = trimmedLine.indexOf(":");
@@ -367,6 +387,9 @@ public class RestTestService {
                     }
                 }
             } else if (mode.equals("REQUEST_BODY")) {
+                if (trimmedLine.startsWith("@")) {
+                    continue;
+                }
                 body.append(line).append("\n");
             }
         }
