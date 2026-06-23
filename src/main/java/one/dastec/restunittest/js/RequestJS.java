@@ -14,6 +14,10 @@ public class RequestJS {
         return variables;
     }
 
+    public int getIteration() {
+        return iteration;
+    }
+
     public int iteration() {
         return iteration;
     }

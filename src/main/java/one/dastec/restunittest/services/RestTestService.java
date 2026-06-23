@@ -457,6 +457,7 @@ public class RestTestService {
             Map<String, String> headerTemplates = test.getHeaders();
             
             String firstCollectionVar = null;
+            String firstCollectionPath = null;
             List<Object> collectionValues = null;
 
             // Pattern for {{varName}}
@@ -477,18 +478,18 @@ public class RestTestService {
                 while (m.find()) usedVars.add(m.group(1).trim());
             });
 
-            for (String varName : usedVars) {
-                Object val = resolveVariableValue(varName, allVars);
+            for (String varPath : usedVars) {
+                Object val = resolveVariableValue(varPath, allVars);
                 if (val instanceof List) {
-                    firstCollectionVar = varName;
+                    firstCollectionPath = varPath;
                     collectionValues = (List<Object>) val;
                     break;
                 } else if (val != null && val.getClass().isArray()) {
-                    firstCollectionVar = varName;
+                    firstCollectionPath = varPath;
                     collectionValues = Arrays.asList((Object[]) val);
                     break;
                 } else if (val instanceof org.graalvm.polyglot.Value && ((org.graalvm.polyglot.Value) val).hasArrayElements()) {
-                    firstCollectionVar = varName;
+                    firstCollectionPath = varPath;
                     org.graalvm.polyglot.Value polyVal = (org.graalvm.polyglot.Value) val;
                     collectionValues = new ArrayList<>();
                     for (int i = 0; i < polyVal.getArraySize(); i++) {
@@ -498,23 +499,25 @@ public class RestTestService {
                 }
             }
 
-            if (firstCollectionVar != null) {
-                requestJS.getVariables().set("__iterationVarName", firstCollectionVar);
-                report.append("Iterating over variable `").append(firstCollectionVar).append("` (")
+            if (firstCollectionPath != null) {
+                // If it's a JsonPath like $.cars..make, we want to iterate over the 'cars' variable instead
+                // but actually, our current logic uses the result of the JsonPath as the collection.
+                // We need to make sure that for each iteration, we can resolve other variables correctly.
+                
+                requestJS.getVariables().set("__iterationVarPath", firstCollectionPath);
+                report.append("Iterating over variable `").append(firstCollectionPath).append("` (")
                         .append(collectionValues.size()).append(" items)\n\n");
                 for (int i = 0; i < collectionValues.size(); i++) {
                     Object currentVal = collectionValues.get(i);
-                    Map<String, Object> iterationVars = new HashMap<>(allVars);
-                    iterationVars.put(firstCollectionVar, currentVal);
                     
-                    report.append("### Execution ").append(i + 1).append(" (`").append(firstCollectionVar)
+                    report.append("### Execution ").append(i + 1).append(" (`").append(firstCollectionPath)
                             .append("` = `").append(currentVal).append("`)\n\n");
                     
                     requestJS.setIteration(i);
-                    executeSingleRequest(test, iterationVars, requestJS, httpClientJS, report, context);
+                    executeSingleRequest(test, allVars, requestJS, httpClientJS, report, context);
                     report.append("\n");
                 }
-                requestJS.getVariables().remove("__iterationVarName");
+                requestJS.getVariables().remove("__iterationVarPath");
             } else {
                 requestJS.setIteration(0);
                 executeSingleRequest(test, allVars, requestJS, httpClientJS, report, context);
@@ -530,30 +533,32 @@ public class RestTestService {
 
     private void executeSingleRequest(HttpTest test, Map<String, Object> allVars, RequestJS requestJS, HttpClientJS httpClientJS, StringBuilder report, org.graalvm.polyglot.Context context) {
         try {
-            // Collect template values for request.templateValue(index)
-            List<Object> templateValues = new ArrayList<>();
-            Pattern varPattern = Pattern.compile("\\{\\{(.+?)}}");
-            
-            if (test.getUrl() != null) {
-                Matcher m = varPattern.matcher(test.getUrl());
-                while (m.find()) {
-                    String varName = m.group(1).trim();
-                    templateValues.add(resolveVariableValue(varName, allVars));
-                }
-            }
-            if (test.getBody() != null) {
-                Matcher m = varPattern.matcher(test.getBody());
-                while (m.find()) {
-                    String varName = m.group(1).trim();
-                    templateValues.add(resolveVariableValue(varName, allVars));
-                }
-            }
-            // Headers are a map, and their order might not be strictly preserved or defined for templateValue
-            // but the issue description shows it for body. Usually, it's URL then body.
-            requestJS.setTemplateValues(templateValues);
+        String iterationVarPath = (String) requestJS.getVariables().get("__iterationVarPath");
+        int iterationIndex = requestJS.getIteration();
 
-            String iterationVarName = (String) requestJS.getVariables().get("__iterationVarName");
-            String url = resolveVariables(test.getUrl(), allVars, iterationVarName);
+        // Collect template values for request.templateValue(index)
+        List<Object> templateValues = new ArrayList<>();
+        Pattern varPattern = Pattern.compile("\\{\\{(.+?)}}");
+        
+        if (test.getUrl() != null) {
+            Matcher m = varPattern.matcher(test.getUrl());
+            while (m.find()) {
+                String varPath = m.group(1).trim();
+                templateValues.add(resolveVariableValueForIteration(varPath, allVars, iterationVarPath, iterationIndex));
+            }
+        }
+        if (test.getBody() != null) {
+            Matcher m = varPattern.matcher(test.getBody());
+            while (m.find()) {
+                String varPath = m.group(1).trim();
+                templateValues.add(resolveVariableValueForIteration(varPath, allVars, iterationVarPath, iterationIndex));
+            }
+        }
+        // Headers are a map, and their order might not be strictly preserved or defined for templateValue
+        // but the issue description shows it for body. Usually, it's URL then body.
+        requestJS.setTemplateValues(templateValues);
+
+        String url = resolveVariables(test.getUrl(), allVars, iterationVarPath, iterationIndex);
             if (url == null || url.trim().isEmpty()) {
                 log.error("Request URL is missing for test: {}. Method: {}, Headers: {}, Body: {}", test.getName(), test.getMethod(), test.getHeaders(), test.getBody());
                 throw new RuntimeException("Request URL is missing. Check if the .http file has a valid request line (e.g., GET http://...)");
@@ -565,11 +570,11 @@ public class RestTestService {
             Map<String, String> headers = new HashMap<>();
             // Apply global headers first
             httpClientJS.global.headers.all().forEach((k, v) -> {
-                headers.put(k, resolveVariables(v, allVars, iterationVarName));
+                headers.put(k, resolveVariables(v, allVars, iterationVarPath, iterationIndex));
             });
 
             test.getHeaders().forEach((k, v) -> {
-                String resolvedValue = resolveVariables(v, allVars, iterationVarName);
+                String resolvedValue = resolveVariables(v, allVars, iterationVarPath, iterationIndex);
                 if (k.equalsIgnoreCase("Authorization") && resolvedValue != null) {
                     if (resolvedValue.startsWith("Basic ") && !resolvedValue.contains(":")) {
                         String credentials = resolvedValue.substring(6).trim();
@@ -585,7 +590,7 @@ public class RestTestService {
                 }
                 headers.put(k, resolvedValue);
             });
-            String body = resolveVariables(test.getBody(), allVars, iterationVarName);
+            String body = resolveVariables(test.getBody(), allVars, iterationVarPath, iterationIndex);
 
             if (!report.toString().endsWith("\n\n")) {
                 if (report.toString().endsWith("\n")) {
@@ -988,7 +993,7 @@ public class RestTestService {
         }
     }
 
-    private String resolveVariables(String text, Map<String, Object> variables, String iterationVarName) {
+    private String resolveVariables(String text, Map<String, Object> variables, String iterationVarPath, int iterationIndex) {
         if (text == null) return null;
         String result = text;
 
@@ -997,13 +1002,8 @@ public class RestTestService {
         Matcher m = varPattern.matcher(result);
         StringBuilder sb = new StringBuilder();
         while (m.find()) {
-            String varName = m.group(1).trim();
-            Object valueObj;
-            if (iterationVarName != null && iterationVarName.equals(varName)) {
-                valueObj = variables.get(varName);
-            } else {
-                valueObj = resolveVariableValue(varName, variables);
-            }
+            String varPath = m.group(1).trim();
+            Object valueObj = resolveVariableValueForIteration(varPath, variables, iterationVarPath, iterationIndex);
             String value = valueObj != null ? valueObj.toString() : "";
             m.appendReplacement(sb, Matcher.quoteReplacement(value));
         }
@@ -1016,8 +1016,27 @@ public class RestTestService {
         return result;
     }
 
+    private Object resolveVariableValueForIteration(String varPath, Map<String, Object> variables, String iterationVarPath, int iterationIndex) {
+        if (iterationVarPath != null && varPath.startsWith(iterationVarPath.substring(0, iterationVarPath.lastIndexOf("..") + 2))) {
+            // If this variable starts with the same path as the iterated variable,
+            // we should try to resolve it for the current iteration.
+            try {
+                Object fullList = JsonPath.read(variables, varPath);
+                if (fullList instanceof List) {
+                    List<?> list = (List<?>) fullList;
+                    if (iterationIndex < list.size()) {
+                        return list.get(iterationIndex);
+                    }
+                }
+            } catch (Exception e) {
+                // fall back to normal resolution
+            }
+        }
+        return resolveVariableValue(varPath, variables);
+    }
+
     private String resolveVariables(String text, Map<String, Object> variables) {
-        return resolveVariables(text, variables, null);
+        return resolveVariables(text, variables, null, 0);
     }
 
     private Object resolveVariableValue(String varName, Map<String, Object> variables) {
