@@ -163,6 +163,10 @@ public class RestTestService {
         }
 
             for (HttpTest test : tests) {
+                if (test.getMethod() == null || test.getUrl() == null) {
+                    log.warn("Skipping test block with no request: {}", test.getName());
+                    continue;
+                }
                 report.append("## ").append(test.getName()).append("\n\n");
                 executeTest(test, requestJS, httpClientJS, report, context);
                 report.append("\n---\n\n");
@@ -275,9 +279,18 @@ public class RestTestService {
         String method = null;
         String url = null;
         
-        if (firstLineIsRequest) {
-            method = firstLineParts[0];
-            url = firstLineParts[1];
+        // Scan for request line if not the first line
+        for (int i = firstNonEmptyLine; i < lines.length; i++) {
+            String l = lines[i].trim();
+            if (l.isEmpty()) continue;
+            if (l.startsWith("< {%") || l.startsWith("> {%") || l.startsWith("#") || l.startsWith("//") || l.startsWith("%}")) continue;
+            
+            String[] parts = l.split("\\s+");
+            if (parts.length >= 2 && parts[0].matches("^(GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS)$")) {
+                method = parts[0];
+                url = parts[1];
+                break;
+            }
         }
 
         String mode = "NONE"; // NONE, PRE, POST, SQL, REQUEST_BODY
@@ -384,7 +397,8 @@ public class RestTestService {
                 } else if ("JS".equals(action.getType())) {
                     setupGraalJsContext(requestJS, httpClientJS, null, context);
                     try {
-                        context.eval("js", action.getContent());
+                        String wrappedScript = "(function() { " + action.getContent() + " \n})();";
+                        context.eval("js", wrappedScript);
                     } catch (Exception e) {
                         report.append("❌ **Error in pre-script:** ").append(e.getMessage()).append("\n");
                     }
@@ -665,7 +679,8 @@ public class RestTestService {
                 setupGraalJsContext(requestJS, httpClientJS, responseJS, context);
                 try {
                     log.info("Executing post-script for test: {}", testUrl);
-                    context.eval("js", test.getPostScript());
+                    String wrappedScript = "(function() { " + test.getPostScript() + " \n})();";
+                    context.eval("js", wrappedScript);
                 } catch (Exception e) {
                     log.error("Error in post-script for test {}: {}", testUrl, e.getMessage());
                     report.append("❌ **Error in post-script:** ").append(e.getMessage()).append("\n");

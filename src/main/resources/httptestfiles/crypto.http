@@ -1,7 +1,5 @@
-### Crypto and JWT Examples
-// This file demonstrates the use of cryptographic and JWT functions in the HTTP Client scripts.
-
 ### 1. Hash Functions
+// This file demonstrates the use of cryptographic and JWT functions in the HTTP Client scripts.
 < {%
     const sha256 = crypto.sha256()
         .updateWithText("Hello, World!")
@@ -104,7 +102,7 @@ GET https://httpbin.org/get
     const msg = "Hello from ECDSA!";
     const msgBytes = Uint8Array.from(msg, c => c.charCodeAt(0));
 
-    const signature = crypto.subtle.sign(
+    const ecdsaSignature = crypto.subtle.sign(
         { name: "ECDSA", hash: "SHA-256" },
         privateKey,
         msgBytes
@@ -113,7 +111,7 @@ GET https://httpbin.org/get
     const verified = crypto.subtle.verify(
         { name: "ECDSA", hash: "SHA-256" },
         publicKey,
-        signature,
+        ecdsaSignature,
         msgBytes
     );
     client.log("ECDSA Verification: " + verified);
@@ -126,7 +124,7 @@ GET https://httpbin.org/get
 
 ### 5. JWT Operations
 < {%
-    const secret = "jwt-secret-key";
+    const jwtSecret = "jwt-secret-key";
     const payload = {
         sub: "1234567890",
         name: "John Doe",
@@ -134,7 +132,7 @@ GET https://httpbin.org/get
     };
 
     // Sign JWT
-    const token = jwt.sign(payload, secret, {
+    const token = jwt.sign(payload, jwtSecret, {
         algorithm: "HS256",
         issuer: "my-app",
         expiresIn: 3600 // 1 hour
@@ -142,7 +140,7 @@ GET https://httpbin.org/get
     client.log("JWT Token: " + token);
 
     // Verify JWT
-    const isTokenValid = jwt.verify(token, secret, {
+    const isTokenValid = jwt.verify(token, jwtSecret, {
         algorithm: "HS256",
         issuer: "my-app"
     });
