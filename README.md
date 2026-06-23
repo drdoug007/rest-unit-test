@@ -19,7 +19,7 @@ A Spring Boot-based framework for executing HTTP-based unit tests with integrate
 - **Dynamic Variables**: Built-in support for dynamic values like `{{$uuid}}`, `{{$timestamp}}`, `{{$randomInt}}`, etc.
 - **Markdown Reports**: Automatically generates detailed reports in Markdown format with pretty-printed JSON and left-aligned table headers.
 - **Credential Masking**: Automatically masks `Authorization` headers with `*` in reports and logs to protect sensitive information.
-- **Spring Security Integration**: Secured API endpoints with Basic Auth and Form Login. Public access allowed for viewing tests, while execution of custom tests requires authentication.
+- **Spring Security Integration**: Secured API endpoints with Basic Auth and the web UI with Form Login. Includes logout functionality with automatic redirection to the login page.
 - **Customizable Timeouts**: Set per-request timeouts using `@timeout` and `@connection-timeout` comments (e.g., `# @timeout 10 s`).
 - **Execution Delay**: Use `sleep(ms)`, `setTimeout(callback, ms)`, and `clearTimeout(id)` in pre-request and post-request scripts to delay execution or handle timers.
 - **Base64 Encoding/Decoding**: Standard `btoa()` and `atob()` methods available globally and via `Window` object for Base64 manipulation.

@@ -78,6 +78,14 @@ public class SecurityIntegrationTest {
 
     @Test
     @WithMockUser(username = "user", roles = "USER")
+    public void logout_shouldRedirectToLogin() throws Exception {
+        mockMvc.perform(post("/logout"))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("/login?logout")));
+    }
+
+    @Test
+    @WithMockUser(username = "user", roles = "USER")
     public void authenticated_shouldReturn200() throws Exception {
         mockMvc.perform(post("/api/runtest/custom")
                         .contentType("application/json")

@@ -351,7 +351,7 @@ pre {
     font-style: italic;
     color: #6c757d;
 }
-.btn-export, .btn-source, .btn-clone, .btn-run {
+.btn-export, .btn-source, .btn-clone, .btn-run, .btn-logout {
     display: none;
     background-color: var(--success-color);
     color: white;
@@ -374,6 +374,13 @@ pre {
 }
 .btn-source:hover, .btn-clone:hover {
     background-color: #138496;
+}
+.btn-logout {
+    display: inline-block;
+    background-color: #dc3545;
+}
+.btn-logout:hover {
+    background-color: #c82333;
 }
 #add-test-btn, #import-openapi-btn, #add-global-row-btn, #save-globals-btn {
     display: inline-block !important;
