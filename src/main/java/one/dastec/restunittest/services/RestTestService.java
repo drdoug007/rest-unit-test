@@ -527,7 +527,6 @@ public class RestTestService {
     }
 
     private void executeSingleRequest(HttpTest test, Map<String, Object> allVars, RequestJS requestJS, HttpClientJS httpClientJS, StringBuilder report, org.graalvm.polyglot.Context context) {
-        String testUrl = test.getUrl();
         try {
             // Collect template values for request.templateValue(index)
             List<Object> templateValues = new ArrayList<>();
@@ -537,14 +536,14 @@ public class RestTestService {
                 Matcher m = varPattern.matcher(test.getUrl());
                 while (m.find()) {
                     String varName = m.group(1).trim();
-                    templateValues.add(allVars.get(varName));
+                    templateValues.add(resolveVariableValue(varName, allVars));
                 }
             }
             if (test.getBody() != null) {
                 Matcher m = varPattern.matcher(test.getBody());
                 while (m.find()) {
                     String varName = m.group(1).trim();
-                    templateValues.add(allVars.get(varName));
+                    templateValues.add(resolveVariableValue(varName, allVars));
                 }
             }
             // Headers are a map, and their order might not be strictly preserved or defined for templateValue
@@ -708,11 +707,11 @@ public class RestTestService {
             if (test.getPostScript() != null && !test.getPostScript().isEmpty()) {
                 setupGraalJsContext(requestJS, httpClientJS, responseJS, context);
                 try {
-                    log.info("Executing post-script for test: {}", testUrl);
+                    log.info("Executing post-script for test: {}", test.getUrl());
                     String wrappedScript = "(function() { " + test.getPostScript() + " \n})();";
                     context.eval("js", wrappedScript);
                 } catch (Exception e) {
-                    log.error("Error in post-script for test {}: {}", testUrl, e.getMessage());
+                    log.error("Error in post-script for test {}: {}", test.getUrl(), e.getMessage());
                     report.append("❌ **Error in post-script:** ").append(e.getMessage()).append("\n");
                 }
                 
@@ -989,17 +988,52 @@ public class RestTestService {
     private String resolveVariables(String text, Map<String, Object> variables) {
         if (text == null) return null;
         String result = text;
-        for (Map.Entry<String, Object> entry : variables.entrySet()) {
-            if (entry.getKey() != null) {
-                String value = entry.getValue() != null ? entry.getValue().toString() : "";
-                result = result.replace("{{" + entry.getKey() + "}}", value);
-            }
+
+        // Pattern for {{varName}}
+        Pattern varPattern = Pattern.compile("\\{\\{(.+?)}}");
+        Matcher m = varPattern.matcher(result);
+        StringBuilder sb = new StringBuilder();
+        while (m.find()) {
+            String varName = m.group(1).trim();
+            Object valueObj = resolveVariableValue(varName, variables);
+            String value = valueObj != null ? valueObj.toString() : "";
+            m.appendReplacement(sb, Matcher.quoteReplacement(value));
         }
+        m.appendTail(sb);
+        result = sb.toString();
 
         // Resolve dynamic variables starting with $
         result = resolveDynamicVariables(result);
 
         return result;
+    }
+
+    private Object resolveVariableValue(String varName, Map<String, Object> variables) {
+        if (varName.startsWith("$")) {
+            // Try as JsonPath
+            try {
+                // Find which variable it refers to. e.g. $.cars..make -> refers to 'cars'
+                // But JsonPath expects the whole object.
+                // Our variables map contains 'cars' as a List or Array.
+                // If it starts with $ it's a JsonPath on the variables context? 
+                // Usually in IntelliJ HTTP Client, {{$.cars..make}} means use JsonPath on the variables.
+                // We can wrap the variables map into something JsonPath can read.
+                Object result = JsonPath.read(variables, varName);
+                if (result instanceof List) {
+                    List<?> array = (List<?>) result;
+                    if (array.size() == 1) {
+                        return array.get(0);
+                    } else if (array.isEmpty()) {
+                        return null;
+                    }
+                }
+                return result;
+            } catch (Exception e) {
+                log.debug("Failed to resolve JsonPath variable: {}", varName);
+                return variables.get(varName);
+            }
+        }
+        return variables.get(varName);
     }
 
     private String resolveDynamicVariables(String text) {
