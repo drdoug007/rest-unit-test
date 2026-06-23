@@ -13,26 +13,35 @@ public class HttpClientJS {
     private final List<String> markdownEntries = new ArrayList<>();
 
     public void test(String name, org.graalvm.polyglot.Value callback) {
+        String testName = name != null ? name : "null";
         try {
             if (callback != null && callback.canExecute()) {
                 callback.execute();
             }
-            testResults.add("✅ " + name);
+            testResults.add("✅ " + testName);
         } catch (Throwable t) {
             String message = t.getMessage();
             if (message != null && message.startsWith("Error: ")) {
                 message = message.substring(7);
             }
-            testResults.add("❌ " + name + ": " + message);
+            testResults.add("❌ " + testName + ": " + message);
         }
     }
 
     public void log(String message) {
-        logs.add(message);
+        if (message == null) {
+            logs.add("null");
+        } else {
+            logs.add(message);
+        }
     }
 
     public void markdown(String content) {
-        markdownEntries.add(content);
+        if (content == null) {
+            markdownEntries.add("null");
+        } else {
+            markdownEntries.add(content);
+        }
     }
 
     public void assertCondition(Object condition, String message) {
