@@ -523,6 +523,11 @@ public class RestTestService {
                 throw new RuntimeException("Request method is missing. Check if the .http file has a valid request line.");
             }
             Map<String, String> headers = new HashMap<>();
+            // Apply global headers first
+            httpClientJS.global.headers.all().forEach((k, v) -> {
+                headers.put(k, resolveVariables(v, allVars));
+            });
+
             test.getHeaders().forEach((k, v) -> {
                 String resolvedValue = resolveVariables(v, allVars);
                 if (k.equalsIgnoreCase("Authorization") && resolvedValue != null) {
@@ -778,12 +783,23 @@ public class RestTestService {
                 "global: { " +
                 "  set: function(name, value) { __client.getGlobal().set(name, value); }," +
                 "  get: function(name) { return __client.getGlobal().get(name); }," +
-                "  all: function() { return __client.getGlobal().all(); }" +
+                "  isEmpty: function() { return __client.getGlobal().isEmpty(); }," +
+                "  clear: function(name) { __client.getGlobal().clear(name); }," +
+                "  clearAll: function() { __client.getGlobal().clearAll(); }," +
+                "  all: function() { return __client.getGlobal().all(); }," +
+                "  headers: { " +
+                "    set: function(name, value) { __client.getGlobal().headers.set(name, value); }," +
+                "    clear: function(name) { __client.getGlobal().headers.clear(name); }," +
+                "    all: function() { return __client.getGlobal().headers.all(); }" +
+                "  }" +
                 "}," +
                 "variables: { " +
                 "  global: { " +
                 "    set: function(name, value) { __client.getGlobal().set(name, value); }," +
                 "    get: function(name) { return __client.getGlobal().get(name); }," +
+                "    isEmpty: function() { return __client.getGlobal().isEmpty(); }," +
+                "    clear: function(name) { __client.getGlobal().clear(name); }," +
+                "    clearAll: function() { __client.getGlobal().clearAll(); }," +
                 "    all: function() { return __client.getGlobal().all(); }" +
                 "  }" +
                 "}," +

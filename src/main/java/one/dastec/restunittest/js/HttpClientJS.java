@@ -65,6 +65,7 @@ public class HttpClientJS {
 
     public static class Global {
         private final Map<String, Object> map = new HashMap<>();
+        public final Headers headers = new Headers();
 
         public void set(String name, Object value) {
             map.put(name, value);
@@ -74,8 +75,40 @@ public class HttpClientJS {
             return map.get(name);
         }
 
+        public boolean isEmpty() {
+            return map.isEmpty();
+        }
+
+        public void clear(String name) {
+            map.remove(name);
+        }
+
+        public void clearAll() {
+            map.clear();
+        }
+
         public Map<String, Object> all() {
             return map;
+        }
+
+        public static class Headers {
+            private final Map<String, String> headerMap = new HashMap<>();
+
+            public void set(String name, String value) {
+                if (value == null) {
+                    headerMap.remove(name);
+                } else {
+                    headerMap.put(name, value);
+                }
+            }
+
+            public void clear(String name) {
+                headerMap.remove(name);
+            }
+
+            public Map<String, String> all() {
+                return headerMap;
+            }
         }
     }
 }
