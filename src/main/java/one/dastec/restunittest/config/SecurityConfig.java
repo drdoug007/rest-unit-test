@@ -31,11 +31,13 @@ public class SecurityConfig {
     public SecurityFilterChain webSecurityFilterChain(HttpSecurity http) throws Exception {
         http
             .authorizeHttpRequests((authorize) -> authorize
-                .requestMatchers("/scripts.js", "/styles.css", "/lib/**", "/favicon.ico", "/.well-known/**").permitAll()
+                .requestMatchers("/login", "/scripts.js", "/styles.css", "/lib/**", "/favicon.ico", "/.well-known/**").permitAll()
                 .anyRequest().authenticated()
             )
             .formLogin(form -> form
+                .loginPage("/login")
                 .defaultSuccessUrl("/", true)
+                .permitAll()
             )
             .logout(logout -> logout
                 .logoutSuccessUrl("/login?logout")

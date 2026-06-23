@@ -120,4 +120,5 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Configured security rules to protect all application endpoints while allowing public access to static resources.
 - Separated authentication mechanisms: Basic Authentication for API endpoints (`/api/**`) and Form Login for the web UI, preventing browser-native sign-in dialogs in the UI.
 - Implemented logout functionality with automatic redirection to the login page.
+- Created a custom inline login form with the same look and feel as the application, including light/dark mode support.
 - Fixed a redirection issue where users were sent to an error page after login by forcing a redirect to the root URL.

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - REST Unit Test Runner</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        body {
+            justify-content: center;
+            height: 100vh;
+            overflow: auto;
+        }
+        .login-container {
+            background: var(--panel-bg);
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            width: 100%;
+            max-width: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .login-header {
+            text-align: center;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+        }
+        .login-header h1 {
+            color: var(--primary-color);
+            margin: 0;
+            font-size: 24px;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .form-group label {
+            font-weight: 600;
+            font-size: 14px;
+        }
+        .form-group input {
+            padding: 10px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-color);
+            color: var(--text-color);
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+        .login-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background-color 0.2s;
+            margin-top: 10px;
+        }
+        .login-btn:hover {
+            background-color: #0069d9;
+        }
+        .error-message {
+            color: #dc3545;
+            background-color: rgba(220, 53, 69, 0.1);
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            text-align: center;
+        }
+        .logout-message {
+            color: var(--success-color);
+            background-color: rgba(40, 167, 69, 0.1);
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <h1>Test Runner Login</h1>
+        </div>
+        
+        <form action="/login" method="post">
+            <div id="messages">
+                <!-- Spring Security inserts query params error or logout -->
+                <script>
+                    const urlParams = new URLSearchParams(window.location.search);
+                    if (urlParams.has('error')) {
+                        document.write('<div class="error-message">Invalid username or password.</div>');
+                    }
+                    if (urlParams.has('logout')) {
+                        document.write('<div class="logout-message">You have been logged out.</div>');
+                    }
+                </script>
+            </div>
+
+            <div class="form-group">
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" required autofocus>
+            </div>
+            
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" required>
+            </div>
+            
+            <button type="submit" class="login-btn">Sign In</button>
+        </form>
+    </div>
+</body>
+</html>
