@@ -48,13 +48,13 @@ public class UtilsJS {
 
     public String btoa(String s) {
         if (s == null) return "";
-        return Base64.getEncoder().encodeToString(s.getBytes(StandardCharsets.UTF_8));
+        return Base64.getEncoder().encodeToString(s.getBytes(StandardCharsets.ISO_8859_1));
     }
 
     public String atob(String s) {
         if (s == null) return "";
         try {
-            return new String(Base64.getDecoder().decode(s), StandardCharsets.UTF_8);
+            return new String(Base64.getDecoder().decode(s), StandardCharsets.ISO_8859_1);
         } catch (Exception e) {
             return "";
         }

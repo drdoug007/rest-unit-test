@@ -282,15 +282,15 @@ public class RestTestService {
 
         String mode = "NONE"; // NONE, PRE, POST, SQL, REQUEST_BODY
 
-        int startParsingFrom = firstLine.startsWith("###") ? firstNonEmptyLine + 1 : firstNonEmptyLine;
-        log.info("Start parsing from line: {}, content: {}", startParsingFrom, lines[startParsingFrom]);
-
+        int startParsingFrom = firstNonEmptyLine;
         StringBuilder currentScript = new StringBuilder();
 
         for (int i = startParsingFrom; i < lines.length; i++) {
             String line = lines[i];
+            if (i == firstNonEmptyLine) {
+                line = cleanFirstLine;
+            }
             String trimmedLine = line.trim();
-            log.info("Line {}: mode={}, content={}", i, mode, trimmedLine);
 
             if (trimmedLine.startsWith("< {%")) {
                 if (!currentScript.toString().trim().isEmpty()) {

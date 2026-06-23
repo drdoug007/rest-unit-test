@@ -28,6 +28,7 @@ A Spring Boot-based framework for executing HTTP-based unit tests with integrate
 - **XML XPath Support**: XML processing of `application/xml` or `text/xml` responses supports XPath expressions via `doc.xpath(expression)` in JavaScript blocks.
 - **URLSearchParams Support**: Standard `URLSearchParams` object available in scripts for easy query string manipulation, supporting constructors (string, object, array), methods (`append`, `get`, `set`, etc.), and iterators.
 - **Collection Iteration**: Automatically iterate over collection variables (e.g., `[1,2,3]`) in URLs, headers, or bodies, sending separate requests for each item. Access the current state using `request.iteration()` and `request.templateValue(index)`.
+- **Crypto & JWT Support**: Integrated Crypto API providing hash functions (SHA-2, SHA-3), HMAC, and SubtleCrypto (RSA, ECDSA) for signing, verification, and encryption. Native JWT support via `jwt.sign`, `jwt.verify`, and `jwt.decode`.
 - **Custom Markdown Helper**: A `markdowner` helper available in JavaScript to add headings, tables, pretty-printed code blocks (including SQL), and raw Markdown content directly to reports.
 - **Compatibility Aliases**: Supports `client.variables.global` as an alias for `client.global` for better compatibility with other REST clients.
 
