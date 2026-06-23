@@ -1,12 +1,7 @@
 package one.dastec.restunittest.services;
 
 import one.dastec.restunittest.config.AppProperties;
-import one.dastec.restunittest.js.DomJS;
-import one.dastec.restunittest.js.HttpClientJS;
-import one.dastec.restunittest.js.RequestJS;
-import one.dastec.restunittest.js.UtilsJS;
-import one.dastec.restunittest.js.UrlSearchParamsJS;
-import one.dastec.restunittest.js.ResponseJS;
+import one.dastec.restunittest.js.*;
 import one.dastec.restunittest.models.HttpTest;
 import com.jayway.jsonpath.JsonPath;
 import org.slf4j.Logger;
@@ -44,6 +39,9 @@ public class RestTestService {
 
 
     private final UtilsJS utilsJS = new UtilsJS();
+    private final CryptoJS cryptoJS = new CryptoJS();
+    private final SubtleCryptoJS subtleCryptoJS = new SubtleCryptoJS();
+    private final JwtJS jwtJS = new JwtJS();
 
     public RestTestService(DataSource dataSource, JdbcTemplate jdbcTemplate, RestClient.Builder builder, GraalJsService graalJsService, AppProperties appProperties) {
         this.jdbcTemplate = jdbcTemplate;
@@ -202,7 +200,7 @@ public class RestTestService {
         String[] blocks = content.split("(?m)^###");
         for (String block : blocks) {
             if (block.trim().isEmpty()) continue;
-            tests.add(parseBlock("###"+block));
+            tests.add(parseBlock("###" + block));
         }
         return tests;
     }
@@ -259,6 +257,7 @@ public class RestTestService {
 
         String firstLine = lines[firstNonEmptyLine].trim();
         String cleanFirstLine = firstLine.replaceAll("^###", "").trim();
+        log.info("Parsing block starting with: {}", cleanFirstLine);
         
         // Check if first line is a request line (starts with HTTP method and has a URL)
         boolean firstLineIsRequest = false;
@@ -283,13 +282,15 @@ public class RestTestService {
 
         String mode = "NONE"; // NONE, PRE, POST, SQL, REQUEST_BODY
 
-        int startParsingFrom = firstNonEmptyLine + 1;
+        int startParsingFrom = firstLine.startsWith("###") ? firstNonEmptyLine + 1 : firstNonEmptyLine;
+        log.info("Start parsing from line: {}, content: {}", startParsingFrom, lines[startParsingFrom]);
 
         StringBuilder currentScript = new StringBuilder();
 
         for (int i = startParsingFrom; i < lines.length; i++) {
             String line = lines[i];
             String trimmedLine = line.trim();
+            log.info("Line {}: mode={}, content={}", i, mode, trimmedLine);
 
             if (trimmedLine.startsWith("< {%")) {
                 if (!currentScript.toString().trim().isEmpty()) {
@@ -383,7 +384,7 @@ public class RestTestService {
                 } else if ("JS".equals(action.getType())) {
                     setupGraalJsContext(requestJS, httpClientJS, null, context);
                     try {
-                        context.eval("js", "(function() {\n" + action.getContent() + "\n})()");
+                        context.eval("js", action.getContent());
                     } catch (Exception e) {
                         report.append("❌ **Error in pre-script:** ").append(e.getMessage()).append("\n");
                     }
@@ -664,7 +665,7 @@ public class RestTestService {
                 setupGraalJsContext(requestJS, httpClientJS, responseJS, context);
                 try {
                     log.info("Executing post-script for test: {}", testUrl);
-                    context.eval("js", "(function() {\n" + test.getPostScript() + "\n})()");
+                    context.eval("js", test.getPostScript());
                 } catch (Exception e) {
                     log.error("Error in post-script for test {}: {}", testUrl, e.getMessage());
                     report.append("❌ **Error in post-script:** ").append(e.getMessage()).append("\n");
@@ -677,9 +678,11 @@ public class RestTestService {
                     }
                 });
             }
+            appendResults(httpClientJS, report);
         } catch (Exception e) {
             report.append("❌ **Error during execution:** ").append(e.getMessage()).append("\n");
             log.error("Error during execution", e);
+            appendResults(httpClientJS, report);
         }
     }
 
@@ -727,6 +730,9 @@ public class RestTestService {
         context.getBindings("js").putMember("request", requestJS);
         context.getBindings("js").putMember("__client", httpClientJS);
         context.getBindings("js").putMember("__utils", utilsJS);
+        context.getBindings("js").putMember("__crypto", cryptoJS);
+        context.getBindings("js").putMember("__subtle", subtleCryptoJS);
+        context.getBindings("js").putMember("__jwt", jwtJS);
         context.getBindings("js").putMember("__UrlSearchParams", UrlSearchParamsJS.class);
         if (responseJS != null) {
             context.getBindings("js").putMember("response", responseJS);
@@ -776,10 +782,6 @@ public class RestTestService {
 
         // Map client.assert and other methods
         context.eval("js", "var client = { " +
-                "test: function(name, callback) { __client.test(name, callback); }," +
-                "assert: function(condition, message) { __client.assertCondition(condition, message); }," +
-                "log: function(message) { __client.log(message); }," +
-                "markdown: function(content) { __client.markdown(content); }," +
                 "global: { " +
                 "  set: function(name, value) { __client.getGlobal().set(name, value); }," +
                 "  get: function(name) { return __client.getGlobal().get(name); }," +
@@ -793,6 +795,10 @@ public class RestTestService {
                 "    all: function() { return __client.getGlobal().headers.all(); }" +
                 "  }" +
                 "}," +
+                "test: function(name, callback) { __client.test(name, callback); }," +
+                "assert: function(condition, message) { __client.assertCondition(condition, message); }," +
+                "log: function(message) { __client.log(message); }," +
+                "markdown: function(content) { __client.markdown(content); }," +
                 "variables: { " +
                 "  global: { " +
                 "    set: function(name, value) { __client.getGlobal().set(name, value); }," +
@@ -864,7 +870,35 @@ public class RestTestService {
                 "    }; " +
                 "    return wrap(javaNode); " +
                 "  }; " +
-                "};");
+                "};" +
+                "var crypto = { " +
+                "  sha256: function() { return __crypto.sha256(); }," +
+                "  sha512: function() { return __crypto.sha512(); }," +
+                "  hmac: { " +
+                "    sha256: function() { return __crypto.hmac.sha256(); }," +
+                "    sha512: function() { return __crypto.hmac.sha512(); }," +
+                "    sha3: function(bits) { return __crypto.hmac.sha3(bits); }" +
+                "  }," +
+                "  subtle: { " +
+                "    generateKey: function(alg, ext, usages) { return __subtle.generateKey(alg, ext, usages); }," +
+                "    importKey: function(fmt, data, alg, ext, usages) { return __subtle.importKey(fmt, data, alg, ext, usages); }," +
+                "    exportKey: function(fmt, key) { return __subtle.exportKey(fmt, key); }," +
+                "    sign: function(alg, key, data) { return __subtle.sign(alg, key, data); }," +
+                "    verify: function(alg, key, sig, data) { return __subtle.verify(alg, key, sig, data); }," +
+                "    encrypt: function(alg, key, data) { return __subtle.encrypt(alg, key, data); }," +
+                "    decrypt: function(alg, key, data) { return __subtle.decrypt(alg, key, data); }" +
+                "  }" +
+                "};" +
+                "var jwt = { " +
+                "  sign: function(payload, key, options) { return __jwt.sign(payload, key, options || {}); }," +
+                "  verify: function(token, key, options) { return __jwt.verify(token, key, options || {}); }," +
+                "  decode: function(token) { return __jwt.decode(token); }" +
+                "};" +
+                "function string2byteArray(str) { " +
+                "  var arr = new Uint8Array(str.length); " +
+                "  for (var i = 0; i < str.length; i++) arr[i] = str.charCodeAt(i); " +
+                "  return arr; " +
+                "}");
     }
 
     private void appendResults(HttpClientJS httpClientJS, StringBuilder report) {

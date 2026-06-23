@@ -12,9 +12,16 @@ public class HttpClientJS {
     private final List<String> logs = new ArrayList<>();
     private final List<String> markdownEntries = new ArrayList<>();
 
-    public void test(String name, Runnable callback) {
+    public void test(String name, Object callback) {
+        System.out.println("[DEBUG_LOG] HttpClientJS.test called: " + name);
         try {
-            callback.run();
+            if (callback instanceof org.graalvm.polyglot.Value v) {
+                if (v.canExecute()) {
+                    v.execute();
+                }
+            } else if (callback instanceof Runnable r) {
+                r.run();
+            }
             testResults.add("✅ " + name);
         } catch (Throwable t) {
             String message = t.getMessage();
