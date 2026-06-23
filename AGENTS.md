@@ -126,6 +126,7 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Implemented `isEmpty()`, `clear()`, and `clearAll()` for `client.global` in the JavaScript test environment.
 - Implemented global headers support via `client.global.headers.set(headerName, headerValue)`, allowing headers to be automatically applied to current and subsequent requests in an execution flow.
 - Implemented comprehensive Crypto and JWT APIs in JavaScript scripts, including SHA-2/3, HMAC, RSA, ECDSA (SubtleCrypto), and JWT signing/verification.
+- Created `src/main/resources/httptestfiles/crypto.http` with comprehensive examples of the new Crypto and JWT functionality.
 - Fixed a bug in the HTTP parser where scripts at the beginning of a test block were not being parsed correctly.
 - Improved `atob`/`btoa` implementations to use ISO-8859-1 for correct handling of binary data in strings.
 - Enhanced `HttpClientJS.test` to correctly execute GraalJS callback functions and capture their results in the report.

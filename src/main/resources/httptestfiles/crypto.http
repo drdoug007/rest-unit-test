@@ -1,0 +1,161 @@
+### Crypto and JWT Examples
+// This file demonstrates the use of cryptographic and JWT functions in the HTTP Client scripts.
+
+### 1. Hash Functions
+< {%
+    const sha256 = crypto.sha256()
+        .updateWithText("Hello, World!")
+        .digest().toHex();
+    client.log("SHA-256: " + sha256);
+
+    const sha512 = crypto.sha512()
+        .updateWithText("Hello, World!")
+        .digest().toBase64();
+    client.log("SHA-512 (Base64): " + sha512);
+
+    client.test("Hash tests", () => {
+        client.assert(sha256 === "dffd6021bb2bd5b0af676290809ec3a53191dd81c7f70a4b28688a362182986f");
+    });
+%}
+GET https://httpbin.org/get
+
+### 2. HMAC Functions
+< {%
+    const secret = "my-secret-key";
+    const message = "Hello, HMAC!";
+    
+    const hmac = crypto.hmac.sha256()
+        .withTextSecret(secret)
+        .updateWithText(message)
+        .digest().toHex();
+    client.log("HMAC-SHA-256: " + hmac);
+
+    const hmacSha3 = crypto.hmac.sha3("256")
+        .withTextSecret(secret)
+        .updateWithText(message)
+        .digest().toHex();
+    client.log("HMAC-SHA3-256: " + hmacSha3);
+
+    client.test("HMAC test", () => {
+        client.assert(hmac !== null);
+    });
+%}
+GET https://httpbin.org/get
+
+### 3. SubtleCrypto RSA (Sign/Verify)
+< {%
+    // Generate RSA Key Pair
+    const algorithm = {
+        name: "RSA-PSS",
+        modulusLength: 2048,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-256"
+    };
+    
+    const keyPair = crypto.subtle.generateKey(algorithm, true, ["sign", "verify"]);
+    const data = "Data to be signed";
+    const dataBytes = Uint8Array.from(data, c => c.charCodeAt(0));
+
+    // Sign
+    const signature = crypto.subtle.sign(
+        { name: "RSA-PSS", saltLength: 32 },
+        keyPair.privateKey,
+        dataBytes
+    );
+    client.log("RSA Signature generated");
+
+    // Verify
+    const isValid = crypto.subtle.verify(
+        { name: "RSA-PSS", saltLength: 32 },
+        keyPair.publicKey,
+        signature,
+        dataBytes
+    );
+    client.log("RSA Verification result: " + isValid);
+
+    client.test("RSA SubtleCrypto test", () => {
+        client.assert(isValid === true, "RSA Signature verification failed");
+    });
+%}
+GET https://httpbin.org/get
+
+### 4. SubtleCrypto ECDSA (Import/Sign/Verify)
+< {%
+    // Example P-256 Keys in PKCS8 and SPKI format (Base64)
+    const base64privateKey = 'MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgXMpTO9h9dsmz9f9XfpvdUbU8PGt7ZMiN95Irv0XAgQyhRANCAASfwTy8KCebIMhKR7hFBW3S7CETQAUvrVyt8nuCYqQuAhK/55XnMAHUYFVD+aP/htk7zImcUKs0Ygsc3n1oIQR8';
+    const base64publicKey = 'MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEn8E8vCgnmyDISke4RQVt0uwhE0AFL61crfJ7gmKkLgISv+eV5zAB1GBVQ/mj/4bZO8yJnFCrNGILHN59aCEEfA==';
+
+    const privateKey = crypto.subtle.importKey(
+        'pkcs8',
+        Uint8Array.from(atob(base64privateKey), c => c.charCodeAt(0)),
+        { name: "ECDSA", namedCurve: "P-256" },
+        true,
+        ["sign"]
+    );
+
+    const publicKey = crypto.subtle.importKey(
+        'spki',
+        Uint8Array.from(atob(base64publicKey), c => c.charCodeAt(0)),
+        { name: "ECDSA", namedCurve: "P-256" },
+        true,
+        ["verify"]
+    );
+
+    const msg = "Hello from ECDSA!";
+    const msgBytes = Uint8Array.from(msg, c => c.charCodeAt(0));
+
+    const signature = crypto.subtle.sign(
+        { name: "ECDSA", hash: "SHA-256" },
+        privateKey,
+        msgBytes
+    );
+
+    const verified = crypto.subtle.verify(
+        { name: "ECDSA", hash: "SHA-256" },
+        publicKey,
+        signature,
+        msgBytes
+    );
+    client.log("ECDSA Verification: " + verified);
+
+    client.test("ECDSA SubtleCrypto test", () => {
+        client.assert(verified === true, "ECDSA Verification failed");
+    });
+%}
+GET https://httpbin.org/get
+
+### 5. JWT Operations
+< {%
+    const secret = "jwt-secret-key";
+    const payload = {
+        sub: "1234567890",
+        name: "John Doe",
+        admin: true
+    };
+
+    // Sign JWT
+    const token = jwt.sign(payload, secret, {
+        algorithm: "HS256",
+        issuer: "my-app",
+        expiresIn: 3600 // 1 hour
+    });
+    client.log("JWT Token: " + token);
+
+    // Verify JWT
+    const isTokenValid = jwt.verify(token, secret, {
+        algorithm: "HS256",
+        issuer: "my-app"
+    });
+    client.log("JWT Verification: " + isTokenValid);
+
+    // Decode JWT
+    const decoded = jwt.decode(token);
+    client.log("Decoded Issuer: " + decoded.payload.iss.asString());
+    client.log("Decoded Name: " + decoded.payload.name.asString());
+
+    client.test("JWT test", () => {
+        client.assert(isTokenValid === true, "JWT Verification failed");
+        client.assert(decoded.payload.sub.asString() === "1234567890");
+    });
+%}
+GET https://httpbin.org/get
