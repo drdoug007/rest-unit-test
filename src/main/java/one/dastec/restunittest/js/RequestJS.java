@@ -44,6 +44,10 @@ public class RequestJS {
             return map.get(name);
         }
 
+        public void remove(String name) {
+            map.remove(name);
+        }
+
         public Map<String, Object> all() {
             return map;
         }

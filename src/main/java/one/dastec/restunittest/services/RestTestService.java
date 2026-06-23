@@ -478,7 +478,7 @@ public class RestTestService {
             });
 
             for (String varName : usedVars) {
-                Object val = allVars.get(varName);
+                Object val = resolveVariableValue(varName, allVars);
                 if (val instanceof List) {
                     firstCollectionVar = varName;
                     collectionValues = (List<Object>) val;
@@ -499,6 +499,7 @@ public class RestTestService {
             }
 
             if (firstCollectionVar != null) {
+                requestJS.getVariables().set("__iterationVarName", firstCollectionVar);
                 report.append("Iterating over variable `").append(firstCollectionVar).append("` (")
                         .append(collectionValues.size()).append(" items)\n\n");
                 for (int i = 0; i < collectionValues.size(); i++) {
@@ -513,6 +514,7 @@ public class RestTestService {
                     executeSingleRequest(test, iterationVars, requestJS, httpClientJS, report, context);
                     report.append("\n");
                 }
+                requestJS.getVariables().remove("__iterationVarName");
             } else {
                 requestJS.setIteration(0);
                 executeSingleRequest(test, allVars, requestJS, httpClientJS, report, context);
@@ -550,7 +552,8 @@ public class RestTestService {
             // but the issue description shows it for body. Usually, it's URL then body.
             requestJS.setTemplateValues(templateValues);
 
-            String url = resolveVariables(test.getUrl(), allVars);
+            String iterationVarName = (String) requestJS.getVariables().get("__iterationVarName");
+            String url = resolveVariables(test.getUrl(), allVars, iterationVarName);
             if (url == null || url.trim().isEmpty()) {
                 log.error("Request URL is missing for test: {}. Method: {}, Headers: {}, Body: {}", test.getName(), test.getMethod(), test.getHeaders(), test.getBody());
                 throw new RuntimeException("Request URL is missing. Check if the .http file has a valid request line (e.g., GET http://...)");
@@ -562,11 +565,11 @@ public class RestTestService {
             Map<String, String> headers = new HashMap<>();
             // Apply global headers first
             httpClientJS.global.headers.all().forEach((k, v) -> {
-                headers.put(k, resolveVariables(v, allVars));
+                headers.put(k, resolveVariables(v, allVars, iterationVarName));
             });
 
             test.getHeaders().forEach((k, v) -> {
-                String resolvedValue = resolveVariables(v, allVars);
+                String resolvedValue = resolveVariables(v, allVars, iterationVarName);
                 if (k.equalsIgnoreCase("Authorization") && resolvedValue != null) {
                     if (resolvedValue.startsWith("Basic ") && !resolvedValue.contains(":")) {
                         String credentials = resolvedValue.substring(6).trim();
@@ -582,7 +585,7 @@ public class RestTestService {
                 }
                 headers.put(k, resolvedValue);
             });
-            String body = resolveVariables(test.getBody(), allVars);
+            String body = resolveVariables(test.getBody(), allVars, iterationVarName);
 
             if (!report.toString().endsWith("\n\n")) {
                 if (report.toString().endsWith("\n")) {
@@ -985,7 +988,7 @@ public class RestTestService {
         }
     }
 
-    private String resolveVariables(String text, Map<String, Object> variables) {
+    private String resolveVariables(String text, Map<String, Object> variables, String iterationVarName) {
         if (text == null) return null;
         String result = text;
 
@@ -995,7 +998,12 @@ public class RestTestService {
         StringBuilder sb = new StringBuilder();
         while (m.find()) {
             String varName = m.group(1).trim();
-            Object valueObj = resolveVariableValue(varName, variables);
+            Object valueObj;
+            if (iterationVarName != null && iterationVarName.equals(varName)) {
+                valueObj = variables.get(varName);
+            } else {
+                valueObj = resolveVariableValue(varName, variables);
+            }
             String value = valueObj != null ? valueObj.toString() : "";
             m.appendReplacement(sb, Matcher.quoteReplacement(value));
         }
@@ -1006,6 +1014,10 @@ public class RestTestService {
         result = resolveDynamicVariables(result);
 
         return result;
+    }
+
+    private String resolveVariables(String text, Map<String, Object> variables) {
+        return resolveVariables(text, variables, null);
     }
 
     private Object resolveVariableValue(String varName, Map<String, Object> variables) {
