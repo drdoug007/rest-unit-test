@@ -562,6 +562,13 @@ public class RestTestService {
             });
             String body = resolveVariables(test.getBody(), allVars);
 
+            if (!report.toString().endsWith("\n\n")) {
+                if (report.toString().endsWith("\n")) {
+                    report.append("\n");
+                } else {
+                    report.append("\n\n");
+                }
+            }
             report.append("**Request:** `").append(method).append(" ").append(url).append("`\n\n");
 
             if (!headers.isEmpty()) {
@@ -922,6 +929,7 @@ public class RestTestService {
             for (String markdownEntry : httpClientJS.getMarkdownEntries()) {
                 report.append(markdownEntry).append("\n");
             }
+            report.append("\n");
             httpClientJS.getMarkdownEntries().clear();
         }
 
@@ -930,6 +938,7 @@ public class RestTestService {
             for (String result : httpClientJS.getTestResults()) {
                 report.append("- ").append(result).append("\n");
             }
+            report.append("\n");
             httpClientJS.getTestResults().clear();
         }
 
@@ -942,6 +951,7 @@ public class RestTestService {
                     report.append("- ").append(logEntry).append("\n");
                 }
             }
+            report.append("\n");
             httpClientJS.getLogs().clear();
         }
     }
