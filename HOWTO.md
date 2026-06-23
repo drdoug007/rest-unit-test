@@ -25,6 +25,7 @@ This document provides a comprehensive guide and examples for using JavaScript i
     - [Timers & Sleep](#timers--sleep)
     - [Base64 (atob/btoa)](#base64-atobbtoa)
     - [URLSearchParams](#urlsearchparams)
+    - [Collection Iteration](#collection-iteration)
 7. [The `markdowner` Helper](#the-markdowner-helper)
 8. [SQL Database Access](#sql-database-access)
 
@@ -232,6 +233,25 @@ Easy query string manipulation.
 %}
 GET {{baseUrl}}/api?{{query}}
 ```
+
+### Collection Iteration
+You can send multiple requests by providing an array or list to a variable. The HTTP Client will iterate over the collection and send a separate request for each item.
+
+Use `request.iteration()` to get the current loop index and `request.templateValue(index)` to get interpolated values.
+
+Example:
+```javascript
+< {%
+    request.variables.set("ids", [101, 102, 103]);
+%}
+GET {{baseUrl}}/api/items/{{ids}}
+
+> {%
+    client.log("Iteration: " + request.iteration());
+    client.log("Value: " + request.templateValue(0));
+%}
+```
+See `src/main/resources/httptestfiles/car_iteration.http` for a comprehensive example of adding multiple records with server-generated IDs.
 
 ---
 

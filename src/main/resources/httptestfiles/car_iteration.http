@@ -1,0 +1,59 @@
+### Collection Iteration: Adding multiple cars to a dealer
+// This file demonstrates how to use request.iteration() to add multiple cars in a single test block.
+
+< {%
+    request.variables.set("cars", [
+        {"make": "Toyota", "model": "Corolla", "color": "White", "price": 25000},
+        {"make": "Honda", "model": "Civic", "color": "Blue", "price": 28000},
+        {"make": "Ford", "model": "Mustang", "color": "Red", "price": 45000}
+    ])
+%}
+
+POST {{baseUrl}}/api/cardealer/1/car
+Content-Type: application/json
+Accept: application/json
+Authorization: Basic {{username}} {{password}}
+
+{
+  "make": "{{$.cars..make}}",
+  "model": "{{$.cars..model}}",
+  "color": "{{$.cars..color}}",
+  "price": "{{$.cars..price}}"
+}
+
+> {%
+    client.log("Processing iteration: " + request.iteration());
+    let currentCar = request.variables.get("cars")[request.iteration()];
+
+    client.test("Car " + currentCar.make + " " + currentCar.model + " added successfully", function () {
+        client.assert(response.status === 201, "Response status is not 201, got " + response.status);
+    });
+
+    client.test("Response includes a generated ID", function () {
+        const id = jsonPath(response.body, "$.id");
+        client.assert(id, "Response did not contain a generated ID");
+        client.log("Generated ID for " + currentCar.make + ": " + id);
+    });
+
+    // We can also use request.templateValue to verify what was sent
+    client.test("Template values match current car", function() {
+        client.assert(request.templateValue(0) === currentCar.make, "Make mismatch");
+        client.assert(request.templateValue(1) === currentCar.model, "Model mismatch");
+    });
+%}
+
+### Verify results with SQL
+// This block runs once after all iterations of the previous block are finished.
+GET {{baseUrl}}/api/cardealer/1
+Authorization: Basic {{username}} {{password}}
+Accept: application/json
+
+> {%
+    markdowner.heading(3, "Final Car List for Dealer 1");
+    const result = client.sqlQuery("SELECT id, make, model, color, price FROM car WHERE dealer_id = 1 ORDER BY id DESC LIMIT 3");
+    markdowner.table(result.columns, result.data);
+
+    client.test("Last 3 cars match our inserted data", function() {
+        client.assert(result.data.length >= 3, "Expected at least 3 cars in database");
+    });
+%}
