@@ -412,6 +412,16 @@ pre {
     display: flex;
     gap: 10px;
 }
+#header-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+#env-info {
+    font-size: 13px;
+    color: var(--secondary-color);
+    font-weight: bold;
+}
 .import-options {
     display: none;
     position: absolute;
