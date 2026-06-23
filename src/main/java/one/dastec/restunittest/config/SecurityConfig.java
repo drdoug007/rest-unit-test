@@ -11,18 +11,33 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 
+import org.springframework.core.annotation.Order;
+
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    @Order(1)
+    public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
         http
+            .securityMatcher("/api/**")
             .authorizeHttpRequests((authorize) -> authorize
-                .requestMatchers("/api/runtest/custom").authenticated()
-                .anyRequest().permitAll()
+                .anyRequest().authenticated()
             )
             .httpBasic(Customizer.withDefaults())
+            .csrf(csrf -> csrf.disable());
+
+        return http.build();
+    }
+
+    @Bean
+    public SecurityFilterChain webSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .authorizeHttpRequests((authorize) -> authorize
+                .requestMatchers("/scripts.js", "/styles.css", "/lib/**", "/favicon.ico", "/.well-known/**").permitAll()
+                .anyRequest().authenticated()
+            )
             .formLogin(Customizer.withDefaults())
             .csrf(csrf -> csrf.disable());
 

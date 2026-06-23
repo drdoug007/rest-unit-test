@@ -12,6 +12,7 @@ import org.junit.jupiter.api.BeforeEach;
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.springframework.context.annotation.Bean;
@@ -50,11 +51,29 @@ public class SecurityIntegrationTest {
     }
 
     @Test
-    public void unauthenticated_shouldReturn401() throws Exception {
-        mockMvc.perform(post("/api/runtest/custom")
-                        .contentType("application/json")
-                        .content("{\"name\":\"test\",\"content\":\"GET http://localhost\"}"))
-                .andExpect(status().isUnauthorized());
+    public void unauthenticated_root_shouldRedirectToLogin() throws Exception {
+        mockMvc.perform(get("/"))
+                .andExpect(status().is3xxRedirection());
+    }
+
+    @Test
+    public void unauthenticated_api_shouldReturn401WithBasicAuthChallenge() throws Exception {
+        mockMvc.perform(get("/api/tests"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string("WWW-Authenticate", org.hamcrest.Matchers.startsWith("Basic")));
+    }
+
+    @Test
+    public void unauthenticated_static_shouldReturn200() throws Exception {
+        mockMvc.perform(get("/scripts.js"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    public void unauthenticated_wellKnown_shouldReturn404Not401Or302() throws Exception {
+        // Should be permitted by security but return 404 because the file doesn't exist
+        mockMvc.perform(get("/.well-known/anything"))
+                .andExpect(status().isNotFound());
     }
 
     @Test
