@@ -856,6 +856,13 @@ public class RestTestService {
                 "}," +
                 "sqlQuery: function(sql) { return __sqlQuery(sql); }" +
                 "};" +
+                "(function() { " +
+                "  var originalParse = JSON.parse; " +
+                "  JSON.parse = function(text, reviver) { " +
+                "    if (typeof text === 'object' && text !== null) return text; " +
+                "    return originalParse(text, reviver); " +
+                "  }; " +
+                "})();" +
                 "var sleep = function(ms) { return __utils.sleep(ms); };" +
                 "var setTimeout = function(cb, ms) { return __utils.setTimeout(cb, ms); };" +
                 "var clearTimeout = function(id) { return __utils.clearTimeout(id); };" +
