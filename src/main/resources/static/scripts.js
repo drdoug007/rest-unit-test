@@ -2,6 +2,10 @@ const testList = document.getElementById('test-list');
 const reportContent = document.getElementById('report-content');
 const sourceContent = document.getElementById('source-content');
 const exportBtn = document.getElementById('export-btn');
+const exportDropdown = document.getElementById('export-dropdown');
+const exportOptions = document.getElementById('export-options');
+const exportPdfBtn = document.getElementById('export-pdf-btn');
+const exportWordBtn = document.getElementById('export-word-btn');
 const sourceBtn = document.getElementById('source-btn');
 const cloneBtn = document.getElementById('clone-btn');
 const runViewBtn = document.getElementById('run-view-btn');
@@ -520,6 +524,7 @@ async function runSingleRequest(requestLine, lineIndex) {
         }, 0);
         
         exportBtn.style.display = 'block';
+        exportDropdown.style.display = 'inline-block';
     } catch (error) {
         reportContent.innerHTML = `<p style="color: red">Error running request: ${error.message}</p>`;
     }
@@ -538,6 +543,7 @@ async function selectTest(testName, element, isCustom = false) {
     sourceGutter.innerHTML = '';
     sourceCode.innerHTML = '<span class="loading">Fetching source...</span>';
     exportBtn.style.display = 'none';
+    exportDropdown.style.display = 'none';
     sourceBtn.style.display = 'none';
     globalsBtn.style.display = 'none';
     cloneBtn.style.display = 'none';
@@ -593,6 +599,7 @@ async function runTest(testName, element, isCustom = false) {
     sourceGutter.innerHTML = '';
     sourceCode.innerHTML = '<span class="loading">Fetching source...</span>';
     exportBtn.style.display = 'none';
+    exportDropdown.style.display = 'none';
     sourceBtn.style.display = 'none';
     globalsBtn.style.display = 'none';
 
@@ -645,6 +652,7 @@ async function runTest(testName, element, isCustom = false) {
         }, 0);
         
         exportBtn.style.display = 'block';
+        exportDropdown.style.display = 'inline-block';
         sourceBtn.style.display = 'block';
         globalsBtn.style.display = isCustom ? 'inline-block' : 'none';
         cloneBtn.style.display = 'inline-block';
@@ -673,6 +681,7 @@ sourceBtn.onclick = async () => {
         reportContent.innerHTML = marked.parse(lastMarkdown);
         sourceBtn.textContent = 'View Source';
         exportBtn.style.display = 'block';
+        exportDropdown.style.display = 'inline-block';
         isViewingSource = false;
     } else {
         reportContent.innerHTML = `<pre><code class="language-http">${escapeHtml(lastSource)}</code></pre>`;
@@ -683,11 +692,18 @@ sourceBtn.onclick = async () => {
         }, 0);
         sourceBtn.textContent = 'View Report';
         exportBtn.style.display = 'none';
+        exportDropdown.style.display = 'none';
         isViewingSource = true;
     }
 };
 
-exportBtn.onclick = async () => {
+exportBtn.onclick = (e) => {
+    e.stopPropagation();
+    exportOptions.style.display = exportOptions.style.display === 'block' ? 'none' : 'block';
+};
+
+exportPdfBtn.onclick = async () => {
+    exportOptions.style.display = 'none';
     const element = document.getElementById('report-content');
     
     // Force light mode for PDF export
@@ -710,7 +726,18 @@ exportBtn.onclick = async () => {
     };
     
     try {
+        // Add page-break class to all h2 elements except the first one for PDF export
+        const h2s = element.querySelectorAll('h2');
+        h2s.forEach((h2, index) => {
+            if (index > 0) {
+                h2.classList.add('pdf-page-break');
+            }
+        });
+
         await html2pdf().set(opt).from(element).save();
+
+        // Remove the temporary class
+        h2s.forEach(h2 => h2.classList.remove('pdf-page-break'));
     } finally {
         // Revert to system theme
         if (isDarkMode) {
@@ -718,6 +745,49 @@ exportBtn.onclick = async () => {
             updateHighlightTheme();
         }
     }
+};
+
+exportWordBtn.onclick = () => {
+    exportOptions.style.display = 'none';
+    const element = document.getElementById('report-content');
+    
+    // Create a clones of the element to modify for export
+    const clone = element.cloneNode(true);
+    
+    // Ensure styles are preserved in the DOCX (best effort)
+    const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                body { font-family: sans-serif; }
+                table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #f2f2f2; }
+                pre { background-color: #f8f8f8; padding: 10px; border: 1px solid #ddd; white-space: pre-wrap; word-wrap: break-word; }
+                code { font-family: monospace; }
+                h1, h2, h3 { color: #007bff; }
+                .pdf-page-break { page-break-before: always; }
+            </style>
+        </head>
+        <body>
+            ${clone.innerHTML}
+        </body>
+        </html>
+    `;
+
+    const converted = htmlDocx.asBlob(htmlContent);
+    const url = URL.createObjectURL(converted);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `test-report-${currentTestName}.docx`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+    }, 0);
 };
 
 cloneBtn.onclick = () => {
@@ -785,6 +855,7 @@ importOpenApiBtn.onclick = (e) => {
 
 document.addEventListener('click', () => {
     importOptions.style.display = 'none';
+    exportOptions.style.display = 'none';
 });
 
 importFileBtn.onclick = () => {

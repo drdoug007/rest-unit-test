@@ -6,6 +6,7 @@
     <title>REST Unit Test Runner</title>
     <script src="lib/marked.min.js"></script>
     <script src="lib/html2pdf.bundle.min.js"></script>
+    <script src="lib/html-docx.js"></script>
     <link id="hljs-style" rel="stylesheet" href="lib/highlight/styles/github.min.css">
     <script src="lib/highlight/highlight.min.js"></script>
     <script src="lib/highlight/languages/http.min.js"></script>
@@ -20,7 +21,13 @@
         <h1>Test Runner</h1>
         <div id="header-actions">
             <button id="source-btn" class="btn-source">View Source</button>
-            <button id="export-btn" class="btn-export">Export to PDF</button>
+            <div id="export-dropdown" class="export-dropdown" style="display: none;">
+                <button id="export-btn" class="btn-export" style="display: block;">Export</button>
+                <div id="export-options" class="export-options">
+                    <button id="export-pdf-btn">Export to PDF</button>
+                    <button id="export-word-btn">Export to Word</button>
+                </div>
+            </div>
         </div>
         <div id="header-right">
             <div id="env-info"></div>

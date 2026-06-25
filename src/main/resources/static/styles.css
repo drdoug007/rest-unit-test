@@ -351,6 +351,10 @@ pre {
     font-style: italic;
     color: #6c757d;
 }
+.pdf-page-break {
+    page-break-before: always;
+    break-before: page;
+}
 .btn-export, .btn-source, .btn-clone, .btn-run, .btn-logout {
     display: none;
     background-color: var(--success-color);
@@ -442,8 +446,37 @@ pre {
     font-size: 13px;
     color: var(--text-color);
 }
-.import-options button:hover {
+.export-dropdown {
+    position: relative;
+    display: inline-block;
+}
+.export-options {
+    display: none;
+    position: absolute;
+    right: 0;
+    background: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    z-index: 1000;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    min-width: 150px;
+}
+.export-options button {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-color);
+}
+.export-options button:hover {
     background: var(--hover-bg);
+}
+.btn-export {
+    display: inline-block;
 }
 
 /* Modal Styles */
