@@ -20,6 +20,49 @@ const importUrlBtn = document.getElementById('import-url-btn');
 const importPasteBtn = document.getElementById('import-paste-btn');
 const openapiFileInput = document.getElementById('openapi-file-input');
 const sourceEditor = document.getElementById('source-editor');
+let cmEditor = null;
+const { EditorView, EditorState, basicSetup, http, javascript, oneDark, Compartment, keymap, indentWithTab } = CodeMirror6;
+const languageConf = new Compartment();
+const themeConf = new Compartment();
+
+function initEditor(content = '') {
+    if (cmEditor) {
+        cmEditor.destroy();
+    }
+    const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+    cmEditor = new EditorView({
+        state: EditorState.create({
+            doc: content,
+            extensions: [
+                basicSetup,
+                keymap.of([indentWithTab]),
+                languageConf.of(http()),
+                themeConf.of(isDarkMode ? oneDark : []),
+            ]
+        }),
+        parent: sourceEditor
+    });
+}
+
+function setEditorContent(content) {
+    if (!cmEditor) {
+        initEditor(content);
+    } else {
+        cmEditor.dispatch({
+            changes: { from: 0, to: cmEditor.state.doc.length, insert: content }
+        });
+    }
+}
+
+function updateEditorTheme() {
+    if (!cmEditor) return;
+    const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    cmEditor.dispatch({
+        effects: themeConf.reconfigure(isDarkMode ? oneDark : [])
+    });
+}
+
 const sourceCode = document.getElementById('source-code');
 const sourceGutter = document.getElementById('source-gutter');
 
@@ -793,7 +836,7 @@ exportWordBtn.onclick = () => {
 cloneBtn.onclick = () => {
     if (!isEditing) {
         isEditing = true;
-        sourceEditor.value = lastSource;
+        setEditorContent(lastSource);
         sourceContent.style.display = 'none';
         sourceEditor.style.display = 'block';
         runCustomBtn.style.display = 'inline-block';
@@ -828,7 +871,7 @@ addTestBtn.onclick = () => {
     lastSource = '### New Test\nGET https://api.example.com\n';
     
     // UI updates
-    sourceEditor.value = lastSource;
+    setEditorContent(lastSource);
     sourceContent.style.display = 'none';
     sourceEditor.style.display = 'block';
     runCustomBtn.style.display = 'inline-block';
@@ -910,7 +953,7 @@ function handleImportedSpec(content, sourceName) {
         isEditing = true;
         lastSource = httpContent;
         
-        sourceEditor.value = lastSource;
+        setEditorContent(lastSource);
         sourceContent.style.display = 'none';
         sourceEditor.style.display = 'block';
         runCustomBtn.style.display = 'inline-block';
@@ -1092,7 +1135,7 @@ function convertOpenApiToHttp(spec) {
 }
 
 saveCustomBtn.onclick = () => {
-    const editedCode = sourceEditor.value;
+    const editedCode = cmEditor ? cmEditor.state.doc.toString() : '';
     if (!isCustomTest || currentTestName === '') {
         const saveName = prompt('Enter a name for this custom test:', currentTestName ? currentTestName + ' (Clone)' : 'New Test');
         if (saveName) {
@@ -1141,7 +1184,7 @@ saveCustomBtn.onclick = () => {
 };
 
 runCustomBtn.onclick = async () => {
-    const editedCode = sourceEditor.value;
+    const editedCode = cmEditor ? cmEditor.state.doc.toString() : '';
     const globals = isCustomTest ? (currentTestName ? (getCustomGlobals()[currentTestName] || {}) : (unsavedGlobals || {})) : {};
     reportContent.innerHTML = `<p class="loading">Running custom test...</p>`;
     
@@ -1211,16 +1254,17 @@ runCustomBtn.onclick = async () => {
     }
 };
 
-// Handle Light/Dark Mode for Highlight.js
+// Handle Light/Dark Mode for Highlight.js and CodeMirror
 function updateHighlightTheme() {
     const hljsStyle = document.getElementById('hljs-style');
-    if (!hljsStyle) return;
-    
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        hljsStyle.href = 'lib/highlight/styles/github-dark.min.css';
-    } else {
-        hljsStyle.href = 'lib/highlight/styles/github.min.css';
+    if (hljsStyle) {
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            hljsStyle.href = 'lib/highlight/styles/github-dark.min.css';
+        } else {
+            hljsStyle.href = 'lib/highlight/styles/github.min.css';
+        }
     }
+    updateEditorTheme();
 }
 
 // Listen for theme changes

@@ -402,15 +402,19 @@ pre {
 #source-editor {
     width: 100%;
     flex: 1;
-    font-family: 'Courier New', Courier, monospace;
-    padding: 10px;
     border: 1px solid var(--border-color);
     background-color: var(--panel-bg);
     color: var(--text-color);
     border-radius: 4px;
     display: none;
-    resize: none;
+    overflow: hidden;
     box-sizing: border-box;
+}
+.cm-editor {
+    height: 100%;
+}
+.cm-scroller {
+    overflow: auto;
 }
 #header-actions {
     display: flex;

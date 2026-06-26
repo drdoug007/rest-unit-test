@@ -690,6 +690,7 @@ public class RestTestService {
                             "        contains: function(other) { return false; }, " + // Simplified
                             "        isSameNode: function(other) { return other && other._jn && jn.node === other._jn.node; }, " +
                             "        isEqualNode: function(other) { return other && other._jn && jn.node.equals(other._jn.node); }, " +
+                            "        toJSON: function() { return this.xml; }, " +
                             "        _jn: jn " +
                             "      }; " +
                             "      return node; " +

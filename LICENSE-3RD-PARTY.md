@@ -26,3 +26,9 @@ This project includes several third-party open-source libraries. Their licenses 
 - **URL**: [https://github.com/eKoopmans/html2pdf.js](https://github.com/eKoopmans/html2pdf.js)
 - **Files**: `src/main/resources/static/lib/html2pdf.bundle.min.js`
 - **Note**: This library bundles other open-source projects, including `jspdf` (MIT License) and `html2canvas` (MIT License).
+
+## CodeMirror 6
+- **License**: MIT
+- **Copyright**: (c) 2018-2023 by Marijn Haverbeke and others
+- **URL**: [https://codemirror.net/](https://codemirror.net/)
+- **Files**: `src/main/resources/static/lib/codemirror6.js`

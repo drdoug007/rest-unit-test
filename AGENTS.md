@@ -130,3 +130,6 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Fixed a bug in the HTTP parser where scripts at the beginning of a test block were not being parsed correctly.
 - Improved `atob`/`btoa` implementations to use ISO-8859-1 for correct handling of binary data in strings.
 - Enhanced `HttpClientJS.test` to correctly execute GraalJS callback functions and capture their results in the report.
+- Implemented a native CodeMirror 6 language extension for the `.http` format using the Lezer parser system, replacing the legacy StreamLanguage implementation.
+- Integrated mixed-language parsing within the CodeMirror 6 editor, enabling syntax highlighting for JavaScript and SQL script blocks nested inside `.http` files.
+- Fixed `TypeError: Cannot read properties of undefined (reading 'read')` in CodeMirror 6 mixed-language parsing by correctly using the `input` argument in `parseMixed`.
