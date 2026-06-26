@@ -1,0 +1,21 @@
+### CI Test 1
+GET {{baseUrl}}/api/cardealer
+Accept: application/json
+Authorization: Basic {{username}} {{password}}
+
+> {%
+    client.test("Status is 200", function() {
+        client.assert(response.status === 200, "Response status should be 200");
+    });
+%}
+
+### CI Test 2
+GET {{baseUrl}}/api/cardealer
+Accept: application/json
+Authorization: Basic {{username}} {{password}}
+
+> {%
+    client.test("Status is 200 again", function() {
+        client.assert(response.status === 200, "Response status should be 200");
+    });
+%}

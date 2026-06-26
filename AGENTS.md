@@ -137,3 +137,7 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Adjusted the "Save" and "Run" actions for custom tests to maintain the editor state after execution.
 - Reconfigured the "Cancel" button for custom tests to revert changes within the editor instead of switching back to the read-only view.
 - Improved `markdowner.codeBlock` in `markdown.js` to automatically detect and fix double-encoded strings (e.g., when `JSON.stringify` is used on XML content), ensuring correctly formatted multi-line output in test reports.
+- Fixed the missing scrollbar in the source code panel for server-side tests by refactoring the source view to use flexbox and ensuring content containers expand to trigger scrolling.
+- Integrated `rest-unit-test` into CI/CD pipelines by creating `CIHttpTests.java` for Maven/JUnit execution.
+- Configured `pom.xml` with essential JVM arguments for native access and GraalJS support during testing.
+- Added `ci-test.http` as a verification suite for CI/CD integration.
