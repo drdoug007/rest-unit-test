@@ -36,6 +36,31 @@ export class Markdown {
     }
 
     codeBlock(language, code, prettyPrint) {
+        if (code && typeof code === 'object' && typeof code.xml === 'string') {
+            code = code.xml;
+        } else if (code && typeof code === 'object') {
+            try {
+                code = JSON.stringify(code, null, 2);
+            } catch (e) {
+                // Ignore and use original code
+            }
+        }
+        
+        if (typeof code === 'string') {
+            // Remove literal double quotes if they wrap the whole string and it contains escaped newlines
+            // This happens if the user did JSON.stringify(response.body) manually
+            if (code.startsWith('"') && code.endsWith('"') && code.includes('\\n')) {
+                try {
+                    const unquoted = JSON.parse(code);
+                    if (typeof unquoted === 'string') {
+                        code = unquoted;
+                    }
+                } catch (e) {
+                    // Not valid JSON or not a string, keep as is
+                }
+            }
+        }
+
         if (prettyPrint && language.toLowerCase() === 'sql') {
             code = this.formatSql(code);
         }

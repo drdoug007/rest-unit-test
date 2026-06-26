@@ -174,9 +174,14 @@ function renderTestItem(name, isCustom) {
         tag.className = 'custom-tag';
         tag.textContent = 'Custom';
         nameSpan.appendChild(tag);
+    } else {
+        const tag = document.createElement('span');
+        tag.className = 'server-tag';
+        tag.textContent = 'HTTP';
+        nameSpan.appendChild(tag);
     }
     nameSpan.appendChild(document.createTextNode(name));
-    nameSpan.onclick = () => selectTest(name, li, isCustom);
+    li.onclick = () => selectTest(name, li, isCustom);
     
     li.appendChild(nameSpan);
 
@@ -604,25 +609,39 @@ async function selectTest(testName, element, isCustom = false) {
         lastSource = await sourceResponse.text();
         sourceCode.textContent = lastSource;
         
-        // Use setTimeout to ensure DOM is updated before highlighting
-        setTimeout(() => {
-            if (typeof hljs === 'undefined') {
-                console.error('highlight.js not available for highlighting');
-                return;
-            }
-            highlightHttpSource(sourceCode);
-        }, 0);
-        
-        sourceBtn.style.display = 'block';
-        globalsBtn.style.display = isCustom ? 'inline-block' : 'none';
-        cloneBtn.style.display = 'inline-block';
-        runViewBtn.style.display = 'inline-block';
-        isEditing = false;
-        sourceEditor.style.display = 'none';
-        sourceContent.style.display = 'block';
-        runCustomBtn.style.display = 'none';
-        saveCustomBtn.style.display = 'none';
-        cloneBtn.textContent = isCustomTest ? 'Edit' : 'Clone';
+        if (isCustom) {
+            isEditing = true;
+            setEditorContent(lastSource);
+            sourceContent.style.display = 'none';
+            sourceEditor.style.display = 'block';
+            runCustomBtn.style.display = 'inline-block';
+            saveCustomBtn.style.display = 'inline-block';
+            globalsBtn.style.display = 'inline-block';
+            runViewBtn.style.display = 'none';
+            cloneBtn.style.display = 'inline-block';
+            cloneBtn.textContent = 'Cancel';
+            sourceBtn.style.display = 'none';
+        } else {
+            // Use setTimeout to ensure DOM is updated before highlighting
+            setTimeout(() => {
+                if (typeof hljs === 'undefined') {
+                    console.error('highlight.js not available for highlighting');
+                    return;
+                }
+                highlightHttpSource(sourceCode);
+            }, 0);
+            
+            sourceBtn.style.display = 'block';
+            globalsBtn.style.display = 'none';
+            cloneBtn.style.display = 'inline-block';
+            runViewBtn.style.display = 'inline-block';
+            isEditing = false;
+            sourceEditor.style.display = 'none';
+            sourceContent.style.display = 'block';
+            runCustomBtn.style.display = 'none';
+            saveCustomBtn.style.display = 'none';
+            cloneBtn.textContent = 'Clone';
+        }
     } catch (error) {
         sourceGutter.innerHTML = '';
         sourceCode.innerHTML = `<span style="color: red">Error fetching source: ${error.message}</span>`;
@@ -845,14 +864,22 @@ cloneBtn.onclick = () => {
         runViewBtn.style.display = 'none';
         cloneBtn.textContent = 'Cancel';
     } else {
-        isEditing = false;
-        sourceContent.style.display = 'block';
-        sourceEditor.style.display = 'none';
-        runCustomBtn.style.display = 'none';
-        saveCustomBtn.style.display = 'none';
-        globalsBtn.style.display = isCustomTest ? 'inline-block' : 'none';
-        runViewBtn.style.display = 'inline-block';
-        cloneBtn.textContent = isCustomTest ? 'Edit' : 'Clone';
+        if (isCustomTest) {
+            // If it's a custom test, "Cancel" should reload the original source from storage
+            // or just stay in edit mode but revert changes. 
+            // Given the requirement "always show the editor", we don't go back to sourceContent.
+            const content = getCustomTests()[currentTestName] || lastSource;
+            setEditorContent(content);
+        } else {
+            isEditing = false;
+            sourceContent.style.display = 'block';
+            sourceEditor.style.display = 'none';
+            runCustomBtn.style.display = 'none';
+            saveCustomBtn.style.display = 'none';
+            globalsBtn.style.display = 'none';
+            runViewBtn.style.display = 'inline-block';
+            cloneBtn.textContent = 'Clone';
+        }
     }
 };
 
@@ -1124,7 +1151,11 @@ function convertOpenApiToHttp(spec) {
                 // Response Body
                 http += '  if (response.body) {\n';
                 http += '    markdowner.heading(3, "Response Message");\n';
-                http += '    markdowner.codeBlock("json", JSON.stringify(response.body, null, 2));\n';
+                http += '    if (response.contentType.mimeType.includes("xml") || response.contentType.mimeType.includes("html")) {\n';
+                http += '      markdowner.codeBlock("xml", response.body.xml || response.body);\n';
+                http += '    } else {\n';
+                http += '      markdowner.codeBlock("json", JSON.stringify(response.body, null, 2));\n';
+                http += '    }\n';
                 http += '  }\n';
 
                 http += '%}\n\n';
@@ -1149,37 +1180,19 @@ saveCustomBtn.onclick = () => {
             lastSource = editedCode;
             sourceCode.textContent = lastSource;
             fetchTests();
-            // Exit edit mode after save
-            isEditing = false;
-            sourceContent.style.display = 'block';
-            sourceEditor.style.display = 'none';
-            runCustomBtn.style.display = 'none';
-            saveCustomBtn.style.display = 'none';
-            cloneBtn.textContent = isCustomTest ? 'Edit' : 'Clone';
-            // Re-highlight
-            setTimeout(() => {
-                if (typeof hljs !== 'undefined') {
-                    highlightHttpSource(sourceCode);
-                }
-            }, 0);
+            // In custom tests, we stay in edit mode
+            isEditing = true;
+            cloneBtn.textContent = 'Cancel';
+            sourceBtn.style.display = 'none';
         }
     } else {
         saveCustomTest(currentTestName, editedCode);
         lastSource = editedCode;
         sourceCode.textContent = lastSource;
-        // Exit edit mode after save
-        isEditing = false;
-        sourceContent.style.display = 'block';
-        sourceEditor.style.display = 'none';
-        runCustomBtn.style.display = 'none';
-        saveCustomBtn.style.display = 'none';
-        cloneBtn.textContent = isCustomTest ? 'Edit' : 'Clone';
-        // Re-highlight
-        setTimeout(() => {
-            if (typeof hljs !== 'undefined') {
-                highlightHttpSource(sourceCode);
-            }
-        }, 0);
+        // In custom tests, we stay in edit mode
+        isEditing = true;
+        cloneBtn.textContent = 'Cancel';
+        sourceBtn.style.display = 'none';
     }
 };
 
@@ -1231,23 +1244,10 @@ runCustomBtn.onclick = async () => {
         reportContent.innerHTML = marked.parse(lastMarkdown);
         sourceCode.textContent = lastSource;
         
-        // Highlight
-        setTimeout(() => {
-            if (typeof hljs !== 'undefined') {
-                highlightHttpSource(sourceCode);
-                reportContent.querySelectorAll('pre code').forEach((block) => {
-                    hljs.highlightElement(block);
-                });
-            }
-        }, 0);
-
-        // Exit edit mode
-        isEditing = false;
-        sourceContent.style.display = 'block';
-        sourceEditor.style.display = 'none';
-        runCustomBtn.style.display = 'none';
-        saveCustomBtn.style.display = 'none';
-        cloneBtn.textContent = isCustomTest ? 'Edit' : 'Clone';
+        // In custom tests, we stay in edit mode
+        isEditing = true;
+        cloneBtn.textContent = 'Cancel';
+        sourceBtn.style.display = 'none';
         
     } catch (error) {
         reportContent.innerHTML = `<p style="color: red">Error running custom test: ${error.message}</p>`;

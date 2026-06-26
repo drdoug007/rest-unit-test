@@ -34,7 +34,7 @@ Authorization: Basic {{username}} {{password}}
     });
 
     markdowner.heading(3, "Response Message");
-    markdowner.codeBlock("json", JSON.stringify(response.body, null, 2));
+    markdowner.codeBlock(response.contentType.mimeType.includes("xml") || response.contentType.mimeType.includes("html") ? "xml" : "json", response.body);
 
 %}
 
@@ -67,7 +67,7 @@ Authorization: Basic {{username}} {{password}}
     });
 
     markdowner.heading(3, "XML Response Message");
-    markdowner.codeBlock("xml", response.body.xml);
+    markdowner.codeBlock("xml", response.body);
 %}
 
 ### Adding car to dealer
@@ -100,7 +100,7 @@ Authorization: Basic {{username}} {{password}}
     });
 
     markdowner.heading(3, "Response Message");
-    markdowner.codeBlock("json", JSON.stringify(response.body, null, 2));
+    markdowner.codeBlock(response.contentType.mimeType.includes("xml") || response.contentType.mimeType.includes("html") ? "xml" : "json", response.body);
 
     const id = jsonPath(response.body, "$.id");
     const query = "SELECT id, make, model, color, price FROM car WHERE car.id = " + id;
@@ -127,7 +127,7 @@ Authorization: Basic {{username}} {{password}}
     });
 
     markdowner.heading(3, "Response Message");
-    markdowner.codeBlock("json", JSON.stringify(response.body, null, 2));
+    markdowner.codeBlock(response.contentType.mimeType.includes("xml") || response.contentType.mimeType.includes("html") ? "xml" : "json", response.body);
 
 %}
 
@@ -152,7 +152,7 @@ Authorization: Basic {{username}} {{password}}
     });
 
     markdowner.heading(3, "Response Message");
-    markdowner.codeBlock("json", JSON.stringify(response.body, null, 2));
+    markdowner.codeBlock(response.contentType.mimeType.includes("xml") || response.contentType.mimeType.includes("html") ? "xml" : "json", response.body);
 
 %}
 

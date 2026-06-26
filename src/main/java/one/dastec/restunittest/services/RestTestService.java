@@ -691,6 +691,8 @@ public class RestTestService {
                             "        isSameNode: function(other) { return other && other._jn && jn.node === other._jn.node; }, " +
                             "        isEqualNode: function(other) { return other && other._jn && jn.node.equals(other._jn.node); }, " +
                             "        toJSON: function() { return this.xml; }, " +
+                            "        toString: function() { return this.xml; }, " +
+                            "        valueOf: function() { return this.xml; }, " +
                             "        _jn: jn " +
                             "      }; " +
                             "      return node; " +
@@ -909,6 +911,7 @@ public class RestTestService {
                 "        get nextSibling() { return wrap(jn.getNextSibling()); }, " +
                 "        get previousSibling() { return wrap(jn.getPreviousSibling()); }, " +
                 "        get textContent() { return jn.getTextContent(); }, " +
+                "        get xml() { return jn.getXml(); }, " +
                 "        get tagName() { return jn.getTagName(); }, " +
                 "        get id() { return jn.getId(); }, " +
                 "        get className() { return jn.getClassName(); }, " +
@@ -924,6 +927,9 @@ public class RestTestService {
                 "        contains: function(other) { return false; }, " +
                 "        isSameNode: function(other) { return other && other._jn && (jn.getNode() === other._jn.getNode()); }, " +
                 "        isEqualNode: function(other) { return other && other._jn && (jn.getNode().equals(other._jn.getNode())); }, " +
+                "        toJSON: function() { return this.xml; }, " +
+                "        toString: function() { return this.xml; }, " +
+                "        valueOf: function() { return this.xml; }, " +
                 "        _jn: jn " +
                 "      }; " +
                 "      return node; " +

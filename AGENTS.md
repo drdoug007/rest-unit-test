@@ -133,3 +133,7 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Implemented a native CodeMirror 6 language extension for the `.http` format using the Lezer parser system, replacing the legacy StreamLanguage implementation.
 - Integrated mixed-language parsing within the CodeMirror 6 editor, enabling syntax highlighting for JavaScript and SQL script blocks nested inside `.http` files.
 - Fixed `TypeError: Cannot read properties of undefined (reading 'read')` in CodeMirror 6 mixed-language parsing by correctly using the `input` argument in `parseMixed`.
+- Updated custom tests to always open in the editor mode by default, removing the intermediate read-only view.
+- Adjusted the "Save" and "Run" actions for custom tests to maintain the editor state after execution.
+- Reconfigured the "Cancel" button for custom tests to revert changes within the editor instead of switching back to the read-only view.
+- Improved `markdowner.codeBlock` in `markdown.js` to automatically detect and fix double-encoded strings (e.g., when `JSON.stringify` is used on XML content), ensuring correctly formatted multi-line output in test reports.
