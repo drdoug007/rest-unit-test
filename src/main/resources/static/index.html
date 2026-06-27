@@ -31,6 +31,13 @@
             </div>
         </div>
         <div id="header-right">
+            <div id="env-container" class="env-container">
+                <select id="env-select" class="env-select">
+                    <option value="">No Environment</option>
+                </select>
+                <button id="add-env-quick-btn" class="btn-manage-envs" title="Add Environment">+</button>
+                <button id="manage-envs-btn" class="btn-manage-envs" title="Manage Environments">⚙️</button>
+            </div>
             <div id="env-info"></div>
             <form action="/logout" method="post" style="display: inline;">
                 <button type="submit" id="logout-btn" class="btn-logout">Logout</button>
@@ -47,22 +54,84 @@
                     <span class="close-modal">&times;</span>
                 </div>
                 <div class="modal-body">
-                    <table id="globals-table" class="globals-table">
-                        <thead>
-                            <tr>
-                                <th>Key</th>
-                                <th>Value</th>
-                                <th style="width: 40px;"></th>
-                            </tr>
-                        </thead>
-                        <tbody id="globals-tbody">
-                            <!-- Rows will be added here -->
-                        </tbody>
-                    </table>
-                    <button id="add-global-row-btn" class="btn-clone" style="margin-top: 10px; background-color: var(--success-color); width: 100%;">+ Add Variable</button>
+                    <div class="modal-header-actions" style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+                        <button id="toggle-globals-format-btn" class="btn-clone" style="font-size: 12px; padding: 5px 10px;">Switch to JSON</button>
+                    </div>
+                    <div id="globals-table-view">
+                        <table id="globals-table" class="globals-table">
+                            <thead>
+                                <tr>
+                                    <th>Key</th>
+                                    <th>Value</th>
+                                    <th style="width: 40px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody id="globals-tbody">
+                                <!-- Rows will be added here -->
+                            </tbody>
+                        </table>
+                        <button id="add-global-row-btn" class="btn-clone" style="margin-top: 10px; background-color: var(--success-color); width: 100%;">+ Add Variable</button>
+                    </div>
+                    <div id="globals-json-view" style="display: none; flex-direction: column;">
+                        <textarea id="globals-json-textarea" class="env-json-textarea" placeholder='{ "key": "value" }' style="width: 100%; height: 250px; font-family: monospace; padding: 10px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); resize: vertical;"></textarea>
+                        <button id="apply-globals-json-btn" class="btn-clone" style="margin-top: 10px; background-color: var(--primary-color); width: 100%;">Apply JSON Changes</button>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button id="save-globals-btn" class="btn-run" style="background-color: var(--primary-color);">Save Globals</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal for Environment Management -->
+        <div id="env-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Manage Environments</h2>
+                    <span class="close-env-modal close-modal">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="env-management-layout">
+                        <div class="env-list-panel">
+                            <ul id="env-list">
+                                <!-- Environments will be listed here -->
+                            </ul>
+                            <button id="add-env-btn" class="btn-clone" style="width: 100%; margin-top: 10px;">+ New Environment</button>
+                        </div>
+                        <div id="env-edit-panel" class="env-edit-panel" style="display: none;">
+                            <div class="env-edit-header">
+                                <input type="text" id="env-name-input" placeholder="Environment Name" class="env-name-input">
+                                <div class="env-edit-actions">
+                                    <button id="toggle-env-format-btn" class="btn-clone" style="font-size: 12px; margin-right: 5px; padding: 5px 10px;">Switch to JSON</button>
+                                    <button id="delete-env-btn" class="btn-delete" title="Delete Environment">🗑️</button>
+                                </div>
+                            </div>
+                            
+                            <div id="env-table-view">
+                                <table class="globals-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Key</th>
+                                            <th>Value</th>
+                                            <th style="width: 40px;"></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="env-vars-tbody">
+                                        <!-- Environment variables will be added here -->
+                                    </tbody>
+                                </table>
+                                <button id="add-env-var-btn" class="btn-clone" style="margin-top: 10px; background-color: var(--success-color); width: 100%;">+ Add Variable</button>
+                            </div>
+
+                            <div id="env-json-view" style="display: none; flex-direction: column;">
+                                <textarea id="env-json-textarea" class="env-json-textarea" placeholder='{ "key": "value" }' style="width: 100%; height: 250px; font-family: monospace; margin-top: 10px; padding: 10px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); resize: vertical;"></textarea>
+                                <button id="apply-env-json-btn" class="btn-clone" style="margin-top: 10px; background-color: var(--primary-color); width: 100%;">Apply JSON Changes</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button id="save-envs-btn" class="btn-run" style="background-color: var(--primary-color);">Save All</button>
                 </div>
             </div>
         </div>

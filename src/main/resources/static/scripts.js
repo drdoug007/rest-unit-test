@@ -72,6 +72,11 @@ const globalsTestName = document.getElementById('globals-test-name');
 const globalsTbody = document.getElementById('globals-tbody');
 const addGlobalRowBtn = document.getElementById('add-global-row-btn');
 const saveGlobalsBtn = document.getElementById('save-globals-btn');
+const toggleGlobalsFormatBtn = document.getElementById('toggle-globals-format-btn');
+const applyGlobalsJsonBtn = document.getElementById('apply-globals-json-btn');
+const globalsTableView = document.getElementById('globals-table-view');
+const globalsJsonView = document.getElementById('globals-json-view');
+const globalsJsonTextarea = document.getElementById('globals-json-textarea');
 const closeModal = document.querySelector('.close-modal');
 
 let currentTestName = '';
@@ -85,6 +90,8 @@ let unsavedGlobals = null;
 // Local Storage Helpers
 const STORAGE_KEY = 'custom_http_tests';
 const GLOBALS_KEY = 'custom_http_globals';
+const ENVS_KEY = 'custom_http_envs';
+const SELECTED_ENV_KEY = 'selected_env_name';
 
 function getCustomTests() {
     const stored = localStorage.getItem(STORAGE_KEY);
@@ -94,6 +101,23 @@ function getCustomTests() {
 function getCustomGlobals() {
     const stored = localStorage.getItem(GLOBALS_KEY);
     return stored ? JSON.parse(stored) : {};
+}
+
+function getEnvironments() {
+    const stored = localStorage.getItem(ENVS_KEY);
+    return stored ? JSON.parse(stored) : {};
+}
+
+function saveEnvironments(envs) {
+    localStorage.setItem(ENVS_KEY, JSON.stringify(envs));
+}
+
+function getSelectedEnvName() {
+    return localStorage.getItem(SELECTED_ENV_KEY) || '';
+}
+
+function setSelectedEnvName(name) {
+    localStorage.setItem(SELECTED_ENV_KEY, name);
 }
 
 function saveCustomTest(name, content) {
@@ -249,14 +273,23 @@ function showGlobalsModal(testName) {
         addGlobalRow('', '');
     }
     
+    globalsTableView.style.display = 'block';
+    globalsJsonView.style.display = 'none';
+    toggleGlobalsFormatBtn.textContent = 'Switch to JSON';
+    
     globalsModal.style.display = 'block';
 }
 
 function addGlobalRow(key = '', value = '') {
     const tr = document.createElement('tr');
+    
+    // Sanitize values to prevent HTML injection
+    const sanitizedKey = escapeHtml(key);
+    const sanitizedValue = escapeHtml(value + '');
+    
     tr.innerHTML = `
-        <td style="padding: 8px;"><input type="text" class="global-key" value="${key}" placeholder="Key"></td>
-        <td style="padding: 8px;"><input type="text" class="global-value" value="${value}" placeholder="Value"></td>
+        <td style="padding: 8px;"><input type="text" class="global-key" value="${sanitizedKey}" placeholder="Key"></td>
+        <td style="padding: 8px;"><input type="text" class="global-value" value="${sanitizedValue}" placeholder="Value"></td>
         <td style="padding: 8px; vertical-align: middle;"><button class="btn-delete-row" title="Delete Variable">&times;</button></td>
     `;
     tr.querySelector('.btn-delete-row').onclick = () => {
@@ -270,15 +303,70 @@ function addGlobalRow(key = '', value = '') {
 
 addGlobalRowBtn.onclick = () => addGlobalRow();
 
+toggleGlobalsFormatBtn.onclick = () => {
+    if (globalsTableView.style.display === 'none') {
+        globalsTableView.style.display = 'block';
+        globalsJsonView.style.display = 'none';
+        toggleGlobalsFormatBtn.textContent = 'Switch to JSON';
+    } else {
+        globalsTableView.style.display = 'none';
+        globalsJsonView.style.display = 'flex';
+        toggleGlobalsFormatBtn.textContent = 'Switch to Table';
+        
+        const globals = {};
+        globalsTbody.querySelectorAll('tr').forEach(tr => {
+            const keyInput = tr.querySelector('.global-key');
+            const valueInput = tr.querySelector('.global-value');
+            if (keyInput && valueInput) {
+                const key = keyInput.value.trim();
+                const value = valueInput.value.trim();
+                if (key) {
+                    globals[key] = value;
+                }
+            }
+        });
+        globalsJsonTextarea.value = JSON.stringify(globals, null, 2);
+    }
+};
+
+applyGlobalsJsonBtn.onclick = () => {
+    try {
+        const globals = JSON.parse(globalsJsonTextarea.value);
+        globalsTbody.innerHTML = '';
+        Object.entries(globals).forEach(([key, value]) => {
+            addGlobalRow(key, value);
+        });
+        
+        if (Object.keys(globals).length === 0) {
+            addGlobalRow('', '');
+        }
+        
+        globalsTableView.style.display = 'block';
+        globalsJsonView.style.display = 'none';
+        toggleGlobalsFormatBtn.textContent = 'Switch to JSON';
+    } catch (e) {
+        alert("Invalid JSON: " + e.message);
+    }
+};
+
 saveGlobalsBtn.onclick = () => {
     const globals = {};
-    globalsTbody.querySelectorAll('tr').forEach(tr => {
-        const key = tr.querySelector('.global-key').value.trim();
-        const value = tr.querySelector('.global-value').value.trim();
-        if (key) {
-            globals[key] = value;
+    if (globalsJsonView.style.display !== 'none') {
+        try {
+            const jsonGlobals = JSON.parse(globalsJsonTextarea.value);
+            Object.assign(globals, jsonGlobals);
+        } catch (e) {
+            console.error("Failed to parse JSON on save", e);
         }
-    });
+    } else {
+        globalsTbody.querySelectorAll('tr').forEach(tr => {
+            const key = tr.querySelector('.global-key').value.trim();
+            const value = tr.querySelector('.global-value').value.trim();
+            if (key) {
+                globals[key] = value;
+            }
+        });
+    }
     if (currentTestName) {
         saveCustomGlobals(currentTestName, globals);
     } else {
@@ -539,6 +627,8 @@ async function runSingleRequest(requestLine, lineIndex) {
 
     const testName = "Single Request: " + requestLine.split(' ')[0];
     const globals = isCustomTest ? (getCustomGlobals()[currentTestName] || {}) : {};
+    const envVars = getSelectedEnvVars();
+    const mergedGlobals = { ...envVars, ...globals };
 
     reportContent.innerHTML = `<p class="loading">Running single request...</p>`;
     
@@ -549,7 +639,7 @@ async function runSingleRequest(requestLine, lineIndex) {
             body: JSON.stringify({
                 name: testName,
                 content: requestContent,
-                globals: globals
+                globals: mergedGlobals
             })
         });
 
@@ -667,22 +757,42 @@ async function runTest(testName, element, isCustom = false) {
 
     try {
         let testResponse, sourceResponse;
+        const envVars = getSelectedEnvVars();
         if (isCustom) {
             const content = getCustomTests()[testName];
             const globals = getCustomGlobals()[testName] || {};
+            const mergedGlobals = { ...envVars, ...globals };
             testResponse = await fetch('/api/runtest/custom', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json; charset=UTF-8' },
                 body: JSON.stringify({
                     name: testName,
                     content: content,
-                    globals: globals
+                    globals: mergedGlobals
                 })
             });
             sourceResponse = { text: async () => content };
         } else {
-            testResponse = await fetch(`/api/runtest/${testName}`);
-            sourceResponse = await fetch(`/api/test/${testName}`);
+            // Server tests - we pass envVars via a custom run endpoint or we need to update the API
+            // For now, let's use the custom run endpoint for server tests too if env is selected,
+            // or better, if there's an environment, always use the custom runner to pass variables.
+            if (Object.keys(envVars).length > 0) {
+                const sourceRes = await fetch(`/api/test/${testName}`);
+                const content = await sourceRes.text();
+                testResponse = await fetch('/api/runtest/custom', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+                    body: JSON.stringify({
+                        name: testName,
+                        content: content,
+                        globals: envVars
+                    })
+                });
+                sourceResponse = { text: async () => content };
+            } else {
+                testResponse = await fetch(`/api/runtest/${testName}`);
+                sourceResponse = await fetch(`/api/test/${testName}`);
+            }
         }
         
         if (!testResponse.ok) {
@@ -1199,6 +1309,9 @@ saveCustomBtn.onclick = () => {
 runCustomBtn.onclick = async () => {
     const editedCode = cmEditor ? cmEditor.state.doc.toString() : '';
     const globals = isCustomTest ? (currentTestName ? (getCustomGlobals()[currentTestName] || {}) : (unsavedGlobals || {})) : {};
+    const envVars = getSelectedEnvVars();
+    const mergedGlobals = { ...envVars, ...globals };
+    
     reportContent.innerHTML = `<p class="loading">Running custom test...</p>`;
     
     try {
@@ -1210,7 +1323,7 @@ runCustomBtn.onclick = async () => {
             body: JSON.stringify({
                 name: currentTestName || 'Custom Test',
                 content: editedCode,
-                globals: globals
+                globals: mergedGlobals
             })
         });
 
@@ -1273,4 +1386,409 @@ if (window.matchMedia) {
 }
 updateHighlightTheme();
 
+// Environment Modal Elements
+const envModal = document.getElementById('env-modal');
+const envSelect = document.getElementById('env-select');
+const manageEnvsBtn = document.getElementById('manage-envs-btn');
+const addEnvQuickBtn = document.getElementById('add-env-quick-btn');
+const envList = document.getElementById('env-list');
+const envEditPanel = document.getElementById('env-edit-panel');
+const envTableView = document.getElementById('env-table-view');
+const envJsonView = document.getElementById('env-json-view');
+const envJsonTextarea = document.getElementById('env-json-textarea');
+const toggleEnvFormatBtn = document.getElementById('toggle-env-format-btn');
+const applyEnvJsonBtn = document.getElementById('apply-env-json-btn');
+const envNameInput = document.getElementById('env-name-input');
+const envVarsTbody = document.getElementById('env-vars-tbody');
+const addEnvBtn = document.getElementById('add-env-btn');
+const addEnvVarBtn = document.getElementById('add-env-var-btn');
+const saveEnvsBtn = document.getElementById('save-envs-btn');
+const deleteEnvBtn = document.getElementById('delete-env-btn');
+const closeEnvModal = document.querySelector('.close-env-modal');
+
+let currentEnvName = '';
+let tempEnvs = {};
+
+function initEnvironments() {
+    const envs = getEnvironments();
+    const selected = getSelectedEnvName();
+    
+    envSelect.innerHTML = '<option value="">No Environment</option>';
+    Object.keys(envs).sort().forEach(name => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = name;
+        if (name === selected) option.selected = true;
+        envSelect.appendChild(option);
+    });
+}
+
+envSelect.onchange = () => {
+    setSelectedEnvName(envSelect.value);
+};
+
+manageEnvsBtn.onclick = () => {
+    tempEnvs = JSON.parse(JSON.stringify(getEnvironments()));
+    currentEnvName = ''; // Reset when opening
+    renderEnvList();
+    envEditPanel.style.display = 'flex';
+    envModal.style.display = 'block';
+};
+
+addEnvQuickBtn.onclick = () => {
+    tempEnvs = JSON.parse(JSON.stringify(getEnvironments()));
+    currentEnvName = ''; // Reset when opening
+    renderEnvList();
+    envEditPanel.style.display = 'none';
+    envModal.style.display = 'block';
+    addEnvBtn.onclick(); // Trigger the add new environment logic
+};
+
+function renderEnvList() {
+    envList.innerHTML = '';
+    const sortedNames = Object.keys(tempEnvs).sort();
+    if (sortedNames.length > 0 && !currentEnvName) {
+        // Don't auto-select here, let the user click or manageEnvsBtn handles it
+    }
+    sortedNames.forEach(name => {
+        const li = document.createElement('li');
+        li.textContent = name;
+        if (name === currentEnvName) li.classList.add('active');
+        li.onclick = async () => {
+            if (currentEnvName) {
+                await saveCurrentEnvToTemp();
+            }
+            editEnvironment(name);
+        };
+        envList.appendChild(li);
+    });
+}
+
+function editEnvironment(name) {
+    currentEnvName = name;
+    renderEnvList();
+    envEditPanel.style.display = 'flex';
+    envTableView.style.display = 'block';
+    envJsonView.style.display = 'none';
+    toggleEnvFormatBtn.textContent = 'Switch to JSON';
+    envNameInput.value = name;
+    renderEnvVars();
+}
+
+const SENSITIVE_VAR_NAMES = ['password', 'secret', 'apikey', 'dbpassword', 'token', 'auth'];
+
+function isSensitiveVar(name) {
+    if (!name) return false;
+    const lower = name.toLowerCase();
+    return SENSITIVE_VAR_NAMES.some(s => lower.includes(s));
+}
+
+function renderEnvVars() {
+    envVarsTbody.innerHTML = '';
+    const vars = tempEnvs[currentEnvName] || {};
+    Object.entries(vars).forEach(([key, value]) => {
+        addEnvVarRow(key, value);
+    });
+}
+
+function addEnvVarRow(key = '', value = '') {
+    const tr = document.createElement('tr');
+    const displayValue = (isSensitiveVar(key) && value.startsWith('{enc}')) ? '********' : value;
+    const inputType = isSensitiveVar(key) ? 'password' : 'text';
+    
+    // Sanitize values to prevent HTML injection (e.g. login form in environment value)
+    const sanitizedKey = escapeHtml(key);
+    const sanitizedValue = escapeHtml(displayValue + '');
+    
+    tr.innerHTML = `
+        <td><input type="text" class="env-var-key" value="${sanitizedKey}" placeholder="Key"></td>
+        <td><input type="${inputType}" class="env-var-value" value="${sanitizedValue}" placeholder="Value"></td>
+        <td><button class="btn-delete-row">&times;</button></td>
+    `;
+    
+    const keyInput = tr.querySelector('.env-var-key');
+    const valueInput = tr.querySelector('.env-var-value');
+    
+    keyInput.oninput = () => {
+        if (isSensitiveVar(keyInput.value)) {
+            valueInput.type = 'password';
+        } else {
+            valueInput.type = 'text';
+        }
+    };
+    
+    tr.querySelector('.btn-delete-row').onclick = () => tr.remove();
+    envVarsTbody.appendChild(tr);
+}
+
+addEnvBtn.onclick = async () => {
+    if (currentEnvName) {
+        await saveCurrentEnvToTemp();
+    }
+    const name = 'New Environment';
+    let newName = name;
+    let counter = 1;
+    while (tempEnvs[newName]) {
+        newName = `${name} ${counter++}`;
+    }
+    tempEnvs[newName] = {};
+    editEnvironment(newName);
+};
+
+addEnvVarBtn.onclick = () => addEnvVarRow();
+
+saveEnvsBtn.onclick = async () => {
+    if (currentEnvName) {
+        await saveCurrentEnvToTemp();
+    }
+    
+    const wasEmpty = Object.keys(getEnvironments()).length === 0;
+    
+    saveEnvironments(tempEnvs);
+    
+    const currentEnvs = getEnvironments();
+    const envNames = Object.keys(currentEnvs);
+    const selectedEnvName = getSelectedEnvName();
+    
+    if (wasEmpty && envNames.length > 0) {
+        setSelectedEnvName(envNames.sort()[0]);
+    } else if (selectedEnvName && !currentEnvs[selectedEnvName]) {
+        // Selected env was deleted or renamed
+        setSelectedEnvName('');
+    }
+    
+    initEnvironments();
+    envModal.style.display = 'none';
+};
+
+envNameInput.oninput = () => {
+    const newName = envNameInput.value.trim();
+    if (newName && newName !== currentEnvName) {
+        if (tempEnvs[newName]) {
+            // Already exists, maybe show error? For now just don't allow duplicate if it's not the current one
+            return;
+        }
+        const vars = tempEnvs[currentEnvName];
+        delete tempEnvs[currentEnvName];
+        tempEnvs[newName] = vars;
+        
+        // If the renamed environment was the one selected in the header, update the selection
+        if (getSelectedEnvName() === currentEnvName) {
+            setSelectedEnvName(newName);
+        }
+        
+        currentEnvName = newName;
+        // renderEnvList(); // Don't re-render here as it loses focus on the input
+        // Instead, just update the active item in the list
+        const activeItem = envList.querySelector('li.active');
+        if (activeItem) {
+            activeItem.textContent = newName;
+            activeItem.onclick = async () => {
+                if (currentEnvName) {
+                    await saveCurrentEnvToTemp();
+                }
+                editEnvironment(newName);
+            };
+        }
+    }
+};
+
+toggleEnvFormatBtn.onclick = () => {
+    if (envTableView.style.display === 'none') {
+        envTableView.style.display = 'block';
+        envJsonView.style.display = 'none';
+        toggleEnvFormatBtn.textContent = 'Switch to JSON';
+        renderEnvVars();
+    } else {
+        envTableView.style.display = 'none';
+        envJsonView.style.display = 'flex';
+        toggleEnvFormatBtn.textContent = 'Switch to Table';
+        
+        // Prepare JSON from current table view
+        const vars = {};
+        envVarsTbody.querySelectorAll('tr').forEach(tr => {
+            const keyInput = tr.querySelector('.env-var-key');
+            const valueInput = tr.querySelector('.env-var-value');
+            if (keyInput && valueInput) {
+                const key = keyInput.value.trim();
+                let value = valueInput.value.trim();
+                if (key) {
+                    if (isSensitiveVar(key) && value === '********') {
+                        value = (tempEnvs[currentEnvName] && tempEnvs[currentEnvName][key]) || '';
+                    }
+                    if (value && value.toString().startsWith('<!DOCTYPE html>')) {
+                         // Corrupted value found, reset it to empty or try to keep old one if available
+                         value = (tempEnvs[currentEnvName] && tempEnvs[currentEnvName][key]) || '';
+                         if (value && value.toString().startsWith('<!DOCTYPE html>')) {
+                             value = '';
+                         }
+                    }
+                    vars[key] = value;
+                }
+            }
+        });
+        envJsonTextarea.value = JSON.stringify(vars, null, 2);
+    }
+};
+
+applyEnvJsonBtn.onclick = async () => {
+    try {
+        const vars = JSON.parse(envJsonTextarea.value);
+        envVarsTbody.innerHTML = '';
+        for (const [key, value] of Object.entries(vars)) {
+            // If it's sensitive and not encrypted yet, encrypt it
+            let valToSet = value;
+            if (isSensitiveVar(key) && !value.toString().startsWith('{enc}')) {
+                try {
+                    const response = await fetch('/api/crypto/encrypt', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: value.toString()
+                    });
+                    if (response.ok) {
+                        const encrypted = await response.text();
+                        if (encrypted.startsWith('{enc}')) {
+                            valToSet = encrypted;
+                        } else {
+                            throw new Error("Unexpected encryption response");
+                        }
+                    } else if (response.status === 401) {
+                        alert("Session expired. Please reload the page and login again.");
+                        return;
+                    }
+                } catch (e) {
+                    console.error("Encryption failed", e);
+                }
+            }
+            addEnvVarRow(key, valToSet);
+        }
+        
+        // Switch back to table view
+        envTableView.style.display = 'block';
+        envJsonView.style.display = 'none';
+        toggleEnvFormatBtn.textContent = 'Switch to JSON';
+        
+        // To be safe, let's call saveCurrentEnvToTemp to sync everything
+        await saveCurrentEnvToTemp();
+        renderEnvVars(); 
+
+    } catch (e) {
+        alert("Invalid JSON: " + e.message);
+    }
+};
+
+async function saveCurrentEnvToTemp() {
+    if (!currentEnvName) return;
+    const nameFromInput = envNameInput.value.trim();
+    if (!nameFromInput) return;
+    
+    const vars = {};
+    
+    if (envJsonView && envJsonView.style.display !== 'none') {
+        try {
+            const jsonVars = JSON.parse(envJsonTextarea.value);
+            for (const [key, value] of Object.entries(jsonVars)) {
+            if (isSensitiveVar(key) && !value.toString().startsWith('{enc}')) {
+                const response = await fetch('/api/crypto/encrypt', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: value.toString()
+                });
+                if (response.ok) {
+                    const encrypted = await response.text();
+                    if (encrypted.startsWith('{enc}')) {
+                        vars[key] = encrypted;
+                    } else {
+                        vars[key] = value;
+                    }
+                } else if (response.status === 401) {
+                    alert("Session expired. Please reload the page and login again.");
+                    return;
+                } else {
+                    vars[key] = value;
+                }
+            } else {
+                    vars[key] = value;
+                }
+            }
+        } catch (e) {
+            console.error("Failed to parse JSON on save", e);
+        }
+    } else {
+        const rows = Array.from(envVarsTbody.querySelectorAll('tr'));
+        for (const tr of rows) {
+            const keyInput = tr.querySelector('.env-var-key');
+            const valueInput = tr.querySelector('.env-var-value');
+            if (keyInput && valueInput) {
+                const key = keyInput.value.trim();
+                let value = valueInput.value.trim();
+                if (key) {
+                    if (isSensitiveVar(key) && value !== '********') {
+                        try {
+                            const response = await fetch('/api/crypto/encrypt', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'text/plain' },
+                                body: value
+                            });
+                            if (response.ok) {
+                                const encrypted = await response.text();
+                                if (encrypted.startsWith('{enc}')) {
+                                    value = encrypted;
+                                    valueInput.value = '********';
+                                }
+                            } else if (response.status === 401) {
+                                alert("Session expired. Please reload the page and login again.");
+                                return;
+                            }
+                        } catch (e) {
+                            console.error("Encryption failed", e);
+                        }
+                    } else if (isSensitiveVar(key) && value === '********') {
+                        value = (tempEnvs[currentEnvName] && tempEnvs[currentEnvName][key]) || '';
+                    }
+                    if (value && value.toString().startsWith('<!DOCTYPE html>')) {
+                         // Corrupted value found
+                         value = '';
+                    }
+                    vars[key] = value;
+                }
+            }
+        }
+    }
+
+    if (nameFromInput !== currentEnvName) {
+        delete tempEnvs[currentEnvName];
+        tempEnvs[nameFromInput] = vars;
+        currentEnvName = nameFromInput;
+    } else {
+        tempEnvs[currentEnvName] = vars;
+    }
+}
+
+deleteEnvBtn.onclick = () => {
+    if (confirm(`Are you sure you want to delete the environment "${currentEnvName}"?`)) {
+        delete tempEnvs[currentEnvName];
+        currentEnvName = '';
+        envEditPanel.style.display = 'none';
+        renderEnvList();
+    }
+};
+
+closeEnvModal.onclick = () => {
+    envModal.style.display = 'none';
+};
+
+window.onclick = (event) => {
+    if (event.target == envModal) envModal.style.display = 'none';
+    if (event.target == globalsModal) globalsModal.style.display = 'none';
+};
+
+function getSelectedEnvVars() {
+    const envName = envSelect.value;
+    if (!envName) return {};
+    const envs = getEnvironments();
+    return envs[envName] || {};
+}
+
+initEnvironments();
 fetchTests();

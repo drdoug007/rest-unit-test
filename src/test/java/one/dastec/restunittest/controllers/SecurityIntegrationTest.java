@@ -57,10 +57,10 @@ public class SecurityIntegrationTest {
     }
 
     @Test
-    public void unauthenticated_api_shouldReturn401WithBasicAuthChallenge() throws Exception {
+    public void unauthenticated_api_shouldReturn401WithoutBasicAuthChallenge() throws Exception {
         mockMvc.perform(get("/api/tests"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(header().string("WWW-Authenticate", org.hamcrest.Matchers.startsWith("Basic")));
+                .andExpect(header().doesNotExist("WWW-Authenticate"));
     }
 
     @Test

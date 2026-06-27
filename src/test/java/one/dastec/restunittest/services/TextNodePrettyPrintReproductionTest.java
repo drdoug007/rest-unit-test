@@ -30,6 +30,7 @@ public class TextNodePrettyPrintReproductionTest {
     private RestClient.RequestBodyUriSpec requestBodyUriSpec;
     private RestClient.ResponseSpec responseSpec;
     private AppProperties appProperties;
+    private CryptoService cryptoService;
 
     @BeforeEach
     public void setUp() {
@@ -41,7 +42,9 @@ public class TextNodePrettyPrintReproductionTest {
         requestBodyUriSpec = Mockito.mock(RestClient.RequestBodyUriSpec.class);
         responseSpec = Mockito.mock(RestClient.ResponseSpec.class);
         appProperties = new AppProperties();
+        cryptoService = new CryptoService();
 
+        when(builder.clone()).thenReturn(builder);
         when(builder.build()).thenReturn(restClient);
         when(restClient.method(any())).thenReturn(requestBodyUriSpec);
         when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodyUriSpec);
@@ -49,7 +52,7 @@ public class TextNodePrettyPrintReproductionTest {
         when(requestBodyUriSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
         
-        restTestService = new RestTestService(dataSource, jdbcTemplate, builder, graalJsService, appProperties);
+        restTestService = new RestTestService(dataSource, jdbcTemplate, builder, graalJsService, appProperties, cryptoService);
     }
 
     @Test

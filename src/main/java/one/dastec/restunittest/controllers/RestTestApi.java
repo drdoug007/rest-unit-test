@@ -1,6 +1,7 @@
 package one.dastec.restunittest.controllers;
 
 import one.dastec.restunittest.models.CustomTestRequest;
+import one.dastec.restunittest.services.CryptoService;
 import one.dastec.restunittest.services.RestTestService;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,9 +16,11 @@ import java.util.List;
 public class RestTestApi {
 
     private final RestTestService restTestService;
+    private final CryptoService cryptoService;
 
-    public RestTestApi(RestTestService restTestService) {
+    public RestTestApi(RestTestService restTestService, CryptoService cryptoService) {
         this.restTestService = restTestService;
+        this.cryptoService = cryptoService;
     }
 
     @GetMapping("/tests")
@@ -53,5 +56,10 @@ public class RestTestApi {
     @GetMapping(path = "/fetch-external", produces = "text/plain; charset=UTF-8")
     public String fetchExternal(@RequestParam("url") String url) {
         return restTestService.fetchExternalUrl(url);
+    }
+
+    @PostMapping(path = "/crypto/encrypt", consumes = "text/plain", produces = "text/plain")
+    public String encrypt(@RequestBody String value) {
+        return "{enc}" + cryptoService.encrypt(value);
     }
 }

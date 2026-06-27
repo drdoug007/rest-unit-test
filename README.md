@@ -4,6 +4,7 @@ A Spring Boot-based framework for executing HTTP-based unit tests with integrate
 
 ## Features
 
+- **Environment Management**: Define and switch between different sets of variables (e.g., Development, Staging, Production) via the UI, persisted in LocalStorage. Supports dynamic switching of `baseUrl` and database connections (`dbUrl`, `dbUsername`, `dbPassword`) without restarting the server. Sensitive variables are automatically encrypted on the server and masked in the UI.
 - **Responsive Web Interface**: A full-height, three-column desktop UI to select, view, edit, and run tests.
 - **Source View & Syntax Highlighting**: Integrated `.http` source code viewer with syntax highlighting (using highlight.js) for both source and reports.
 - **Custom Browser-based Tests**: Create, edit, save, and delete custom `.http` tests directly in the browser using LocalStorage.

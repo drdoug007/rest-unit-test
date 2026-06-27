@@ -39,6 +39,7 @@ public class RestTestServiceTest {
     private RestClient.ResponseSpec responseSpec;
 
     private AppProperties appProperties;
+    private CryptoService cryptoService;
 
     @BeforeEach
     public void setUp() {
@@ -51,6 +52,7 @@ public class RestTestServiceTest {
         responseSpec = Mockito.mock(RestClient.ResponseSpec.class);
         appProperties = new AppProperties();
         appProperties.getEnvironment().setName("TestEnv");
+        cryptoService = new CryptoService();
 
         when(builder.clone()).thenReturn(builder);
         when(builder.build()).thenReturn(restClient);
@@ -60,7 +62,7 @@ public class RestTestServiceTest {
         when(requestBodyUriSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
         
-        restTestService = new RestTestService(dataSource, jdbcTemplate, builder, graalJsService, appProperties);
+        restTestService = new RestTestService(dataSource, jdbcTemplate, builder, graalJsService, appProperties, cryptoService);
     }
 
     @Test
@@ -186,5 +188,23 @@ public class RestTestServiceTest {
 
         assertTrue(report.contains("Test Report: Test with App Globals"));
         Mockito.verify(requestBodyUriSpec).uri(contains("var=globalValue"));
+    }
+
+    @Test
+    void testEncryptedVariables() {
+        String secret = "my-secret-password";
+        String encrypted = "{enc}" + cryptoService.encrypt(secret);
+        
+        Map<String, Object> globals = new HashMap<>();
+        globals.put("dbPassword", encrypted);
+        
+        String content = "### Test Encrypted\nGET http://localhost:8080/api/test?pass={{dbPassword}}";
+        ResponseEntity<String> responseEntity = new ResponseEntity<>("OK", HttpStatus.OK);
+        when(responseSpec.toEntity(String.class)).thenReturn(responseEntity);
+
+        String report = restTestService.runTestWithContent("Test with Encrypted", content, globals);
+
+        assertTrue(report.contains("Test Report: Test with Encrypted"));
+        Mockito.verify(requestBodyUriSpec).uri(contains("pass=my-secret-password"));
     }
 }

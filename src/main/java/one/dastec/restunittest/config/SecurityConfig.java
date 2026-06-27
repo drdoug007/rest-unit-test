@@ -9,6 +9,9 @@ import org.springframework.security.web.SecurityFilterChain;
 
 import org.springframework.core.annotation.Order;
 
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.http.HttpStatus;
+
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
@@ -22,6 +25,9 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             .httpBasic(Customizer.withDefaults())
+            .exceptionHandling(exceptions -> exceptions
+                .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+            )
             .csrf(csrf -> csrf.disable());
 
         return http.build();

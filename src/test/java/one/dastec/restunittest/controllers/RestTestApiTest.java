@@ -1,6 +1,7 @@
 package one.dastec.restunittest.controllers;
 
 import one.dastec.restunittest.models.CustomTestRequest;
+import one.dastec.restunittest.services.CryptoService;
 import one.dastec.restunittest.services.RestTestService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,11 +20,13 @@ class RestTestApiTest {
 
     private RestTestApi restTestApi;
     private RestTestService restTestService;
+    private CryptoService cryptoService;
 
     @BeforeEach
     void setUp() {
         restTestService = Mockito.mock(RestTestService.class);
-        restTestApi = new RestTestApi(restTestService);
+        cryptoService = Mockito.mock(CryptoService.class);
+        restTestApi = new RestTestApi(restTestService, cryptoService);
     }
 
     @Test

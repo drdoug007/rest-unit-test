@@ -28,6 +28,11 @@ This document provides a comprehensive guide and examples for using JavaScript i
     - [Collection Iteration](#collection-iteration)
 7. [The `markdowner` Helper](#the-markdowner-helper)
 8. [SQL Database Access](#sql-database-access)
+9. [Environment Management](#environment-management)
+    - [Creating & Managing Environments](#creating--managing-environments)
+    - [Variable Resolution & Priority](#variable-resolution--priority)
+    - [Sensitive Variable Encryption](#sensitive-variable-encryption)
+    - [Dynamic Database Switching](#dynamic-database-switching)
 
 ---
 
@@ -300,3 +305,39 @@ When using `markdowner.codeBlock`, you can enable SQL pretty-printing for better
     markdowner.codeBlock("sql", query, true);
 %}
 ```
+
+---
+
+## Environment Management
+
+The Environment Management feature allows you to define, manage, and switch between different sets of variables (e.g., Development, Staging, Production) without modifying your `.http` files.
+
+### Creating & Managing Environments
+1. **Quick Access**: Click the green **+** button next to the environment selector in the header to create a new environment.
+2. **Management Modal**: Click the gear icon next to the environment selector to open the **Manage Environments** modal.
+   - **Create**: Use the **+ New Environment** button.
+   - **Rename**: Select an environment and edit its name; changes are reflected in real-time.
+   - **Delete**: Click the trash icon next to an environment name.
+   - **Variables**: Add key/value pairs in the table or use the **Switch to JSON** toggle to manage them in bulk using JSON format.
+   - **Save**: Click **Save All** to persist changes to `LocalStorage`.
+
+### Variable Resolution & Priority
+When a request is executed, variables are resolved in the following order of priority (highest to lowest):
+1. **Environment Variables**: Defined in the currently selected environment.
+2. **Global Variables**: Managed via the **Global Variables** modal (persistent across files).
+3. **Request Variables**: Defined within the `.http` file using `@name = value` or `request.variables.set()`.
+4. **Application Globals**: Defined in the server's `application.yaml` under `app.test-globals`.
+
+### Sensitive Variable Encryption
+Sensitive variables (e.g., `password`, `apiKey`, `dbPassword`, `token`) are automatically identified and protected:
+- **UI Masking**: Values appear as `********` in the management table.
+- **Server-Side Encryption**: Values are sent to the server for AES encryption before being stored in the browser's `LocalStorage`.
+- **Automatic Decryption**: The test runner automatically decrypts these values (prefixed with `{enc}`) before using them in requests or scripts.
+
+### Dynamic Database Switching
+You can target different databases for your tests by providing specific variables in your environment:
+- `dbUrl`: The JDBC URL of the target database (supports PostgreSQL, MySQL, and H2).
+- `dbUsername`: The database username.
+- `dbPassword`: The database password (automatically encrypted).
+
+If these variables are present, `client.sqlQuery()` and legacy SQL blocks will automatically connect to the specified database instead of the application's default data source.

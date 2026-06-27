@@ -406,14 +406,14 @@ pre {
 .btn-logout:hover {
     background-color: #c82333;
 }
-#add-test-btn, #import-openapi-btn, #add-global-row-btn, #save-globals-btn {
+#add-test-btn, #import-openapi-btn, #add-global-row-btn, #save-globals-btn, #add-env-var-btn, #save-envs-btn, #toggle-globals-format-btn, #toggle-env-format-btn {
     display: inline-block !important;
     min-width: auto;
     padding: 4px 10px;
     height: 30px;
     font-size: 12px;
 }
-#add-global-row-btn, #save-globals-btn {
+#add-global-row-btn, #save-globals-btn, #add-env-var-btn, #save-envs-btn {
     width: 100%;
     height: 36px;
     font-size: 13px;
@@ -587,4 +587,123 @@ pre {
 .btn-delete-row:hover {
     background-color: var(--hover-bg);
     border-radius: 50%;
+}
+
+/* Environment Management Styles */
+.env-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-right: 15px;
+}
+.env-select {
+    padding: 6px 12px;
+    border: 1px solid var(--border-color);
+    background-color: var(--panel-bg);
+    color: var(--text-color);
+    border-radius: 4px;
+    font-size: 13px;
+    cursor: pointer;
+    min-width: 140px;
+}
+.btn-manage-envs {
+    background: none;
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    cursor: pointer;
+    font-size: 16px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 32px;
+    min-width: 32px;
+}
+#add-env-quick-btn {
+    font-size: 20px;
+    color: var(--success-color);
+}
+.btn-manage-envs:hover {
+    background-color: var(--hover-bg);
+}
+.env-management-layout {
+    display: flex;
+    gap: 20px;
+    min-height: 300px;
+}
+.env-list-panel {
+    flex: 0 0 200px;
+    border-right: 1px solid var(--border-color);
+    padding-right: 20px;
+}
+#env-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+#env-list li {
+    padding: 10px;
+    cursor: pointer;
+    border-radius: 4px;
+    margin-bottom: 5px;
+    border: 1px solid transparent;
+}
+#env-list li:hover {
+    background-color: var(--hover-bg);
+}
+#env-list li.active {
+    background-color: var(--primary-color);
+    color: white;
+}
+.env-edit-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+.env-edit-header {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.env-name-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border-radius: 4px;
+    font-size: 14px;
+    font-weight: bold;
+}
+.btn-delete {
+    background: none;
+    border: 1px solid #dc3545;
+    color: #dc3545;
+    cursor: pointer;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 16px;
+}
+.btn-delete:hover {
+    background-color: #dc3545;
+    color: white;
+}
+.env-edit-actions {
+    display: flex;
+    align-items: center;
+}
+.env-json-textarea {
+    flex: 1;
+    min-height: 250px;
+    margin-bottom: 10px;
+}
+.env-edit-panel table input {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border-radius: 4px;
+    font-size: 13px;
 }

@@ -20,6 +20,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.server.ResponseStatusException;
 
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+
 import javax.sql.DataSource;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -36,6 +38,7 @@ public class RestTestService {
     private final RestClient.Builder builder;
     private final GraalJsService graalJsService;
     private final AppProperties appProperties;
+    private final CryptoService cryptoService;
 
 
     private final UtilsJS utilsJS = new UtilsJS();
@@ -43,11 +46,12 @@ public class RestTestService {
     private final SubtleCryptoJS subtleCryptoJS = new SubtleCryptoJS();
     private final JwtJS jwtJS = new JwtJS();
 
-    public RestTestService(DataSource dataSource, JdbcTemplate jdbcTemplate, RestClient.Builder builder, GraalJsService graalJsService, AppProperties appProperties) {
+    public RestTestService(DataSource dataSource, JdbcTemplate jdbcTemplate, RestClient.Builder builder, GraalJsService graalJsService, AppProperties appProperties, CryptoService cryptoService) {
         this.jdbcTemplate = jdbcTemplate;
         this.builder = builder;
         this.graalJsService = graalJsService;
         this.appProperties = appProperties;
+        this.cryptoService = cryptoService;
     }
 
     public String getTestSource(String testName) {
@@ -742,6 +746,7 @@ public class RestTestService {
     }
 
     private void executeSql(String sqlScript, RequestJS requestJS, HttpClientJS httpClientJS, StringBuilder report) {
+        JdbcTemplate activeJdbcTemplate = getJdbcTemplate(requestJS.getVariables().all());
         String sql = sqlScript;
         // Basic parameter substitution in SQL
         for (Map.Entry<String, Object> entry : requestJS.getVariables().all().entrySet()) {
@@ -764,7 +769,7 @@ public class RestTestService {
         }
 
         List<Map<String, Object>> resultSet = new ArrayList<>();
-        SqlRowSet rowSet = jdbcTemplate.queryForRowSet(actualSql);
+        SqlRowSet rowSet = activeJdbcTemplate.queryForRowSet(actualSql);
         SqlRowSetMetaData metaData = rowSet.getMetaData();
         String[] columnNames = metaData.getColumnNames();
 
@@ -779,6 +784,31 @@ public class RestTestService {
         httpClientJS.getGlobal().set("ResultSet", resultSet);
         httpClientJS.getGlobal().set("ResultSetColumns", columnNames);
         report.append("**SQL Query executed.** Returned ").append(resultSet.size()).append(" rows.\n\n");
+    }
+
+    private JdbcTemplate getJdbcTemplate(Map<String, Object> variables) {
+        String dbUrl = (String) resolveVariableValue("dbUrl", variables);
+        String dbUsername = (String) resolveVariableValue("dbUsername", variables);
+        String dbPassword = (String) resolveVariableValue("dbPassword", variables);
+
+        if (dbUrl != null && !dbUrl.isEmpty()) {
+            DriverManagerDataSource dataSource = new DriverManagerDataSource();
+            dataSource.setUrl(dbUrl);
+            if (dbUsername != null) dataSource.setUsername(dbUsername);
+            if (dbPassword != null) dataSource.setPassword(dbPassword);
+            
+            // Try to detect driver from URL if not specified
+            if (dbUrl.startsWith("jdbc:postgresql:")) {
+                dataSource.setDriverClassName("org.postgresql.Driver");
+            } else if (dbUrl.startsWith("jdbc:mysql:")) {
+                dataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
+            } else if (dbUrl.startsWith("jdbc:h2:")) {
+                dataSource.setDriverClassName("org.h2.Driver");
+            }
+            
+            return new JdbcTemplate(dataSource);
+        }
+        return this.jdbcTemplate;
     }
 
     private void setupGraalJsContext(RequestJS requestJS, HttpClientJS httpClientJS, ResponseJS responseJS, org.graalvm.polyglot.Context context) {
@@ -811,8 +841,9 @@ public class RestTestService {
 
         context.getBindings("js").putMember("__sqlQuery", (java.util.function.Function<String, Map<String, Object>>) (sql) -> {
             try {
+                JdbcTemplate activeJdbcTemplate = getJdbcTemplate(requestJS.getVariables().all());
                 List<Map<String, Object>> data = new ArrayList<>();
-                SqlRowSet rowSet = jdbcTemplate.queryForRowSet(sql);
+                SqlRowSet rowSet = activeJdbcTemplate.queryForRowSet(sql);
                 SqlRowSetMetaData metaData = rowSet.getMetaData();
                 String[] columnNames = metaData.getColumnNames();
 
@@ -1047,6 +1078,11 @@ public class RestTestService {
     }
 
     private Object resolveVariableValue(String varName, Map<String, Object> variables) {
+        Object value = variables.get(varName);
+        if (value instanceof String) {
+            value = cryptoService.decryptIfNeeded((String) value);
+        }
+        
         if (varName.startsWith("$")) {
             // Try as JsonPath
             try {
@@ -1068,10 +1104,14 @@ public class RestTestService {
                 return result;
             } catch (Exception e) {
                 log.debug("Failed to resolve JsonPath variable: {}", varName);
-                return variables.get(varName);
+                Object rawValue = variables.get(varName);
+                if (rawValue instanceof String) {
+                    return cryptoService.decryptIfNeeded((String) rawValue);
+                }
+                return rawValue;
             }
         }
-        return variables.get(varName);
+        return value;
     }
 
     private String resolveDynamicVariables(String text) {

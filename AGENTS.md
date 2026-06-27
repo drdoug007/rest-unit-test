@@ -141,3 +141,27 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Integrated `rest-unit-test` into CI/CD pipelines by creating `CIHttpTests.java` for Maven/JUnit execution.
 - Configured `pom.xml` with essential JVM arguments for native access and GraalJS support during testing.
 - Added `ci-test.http` as a verification suite for CI/CD integration.
+- Implemented Jenkins CI/CD pipeline configuration in `Jenkinsfile`.
+- Created detailed documentation for Jenkins CI/CD integration in `HOWTO-JENKINS.md`.
+- Implemented Environment Management & Switching in the web UI, allowing users to define, manage, and switch between different sets of variables (e.g., Development, Staging, Production).
+- Persisted environments in `LocalStorage` and integrated them with the test runner to automatically merge environment-specific variables during test execution.
+- Improved the Environment Management UI with live renaming, auto-selection of new environments, and better state persistence during management.
+- Added a quick-access "+" button to the environment selector in the header for easier creation of new environments.
+- Fixed an issue where the "Save All" and "+ Add Variable" buttons were not visible in the Environment Management modal.
+- Fixed a bug where environment variables were not being saved or displayed correctly when switching between environments or re-opening the management modal.
+- Simplified the visibility toggling for the `env-edit-panel` to ensure it displays correctly when managing environments.
+- Enhanced `RestTestService` to support dynamic database switching in tests by providing `dbUrl`, `dbUsername`, and `dbPassword` as environment variables, allowing users to switch target databases without restarting the application.
+- Implemented server-side encryption for sensitive environment variables (e.g., `password`, `apiKey`, `dbPassword`) using AES.
+- Updated the Web UI to automatically encrypt sensitive variables upon saving and mask them in the management interface.
+- Enhanced `RestTestService` to automatically decrypt encrypted variables during test execution and variable resolution.
+- Updated all unit and integration tests to support the new `CryptoService` dependency.
+- Added support for managing environment variables in JSON format via a dedicated textarea editor in the web UI.
+- Implemented bidirectional synchronization between the table-based variable editor and the new JSON editor.
+- Ensured automatic encryption of sensitive variables when imported via JSON.
+- Fixed an HTML injection vulnerability in Environment Management and Global Variables UI by properly sanitizing keys and values before rendering.
+- Improved security by configuring Spring Security to return 401 Unauthorized for unauthenticated API requests instead of redirecting to the login page.
+- Enhanced the Web UI to handle session expiration during sensitive variable encryption, preventing corrupted HTML content from being stored in LocalStorage.
+- Added automatic detection and cleanup of corrupted environment variable values in the Web UI.
+- Implemented JSON management for Global Variables in the web UI, including a toggleable JSON editor with bidirectional synchronization.
+- Ensured consistent behavior between Environment Management and Global Variables modals for JSON data handling.
+- Added Environment Management feature documentation to `HOWTO.md`.
