@@ -298,6 +298,11 @@ public class RestTestService {
         String method = null;
         String url = null;
         
+        // Mock response parsing
+        String mockStatus = null;
+        Map<String, String> mockHeaders = new HashMap<>();
+        StringBuilder mockBody = new StringBuilder();
+        
         // Scan for request line if not the first line
         for (int i = firstNonEmptyLine; i < lines.length; i++) {
             String l = lines[i].trim();
@@ -312,7 +317,7 @@ public class RestTestService {
             }
         }
 
-        String mode = "NONE"; // NONE, PRE, POST, SQL, REQUEST_BODY
+        String mode = "NONE"; // NONE, PRE, POST, SQL, REQUEST_BODY, MOCK_RESPONSE, MOCK_BODY
 
         int startParsingFrom = firstNonEmptyLine;
         StringBuilder currentScript = new StringBuilder();
@@ -365,9 +370,11 @@ public class RestTestService {
 
             if (mode.equals("PRE") || mode.equals("SQL") || mode.equals("POST")) {
                 currentScript.append(line).append("\n");
-            } else if (mode.equals("NONE")) {
+            } else if (mode.equals("NONE") || mode.equals("MOCK_RESPONSE")) {
                 if (trimmedLine.isEmpty()) {
-                    if (requestLineFound) {
+                    if (mode.equals("MOCK_RESPONSE")) {
+                        mode = "MOCK_BODY";
+                    } else if (requestLineFound) {
                         mode = "REQUEST_BODY";
                     }
                     continue;
@@ -382,19 +389,30 @@ public class RestTestService {
                         url = parts[1];
                         requestLineFound = true;
                     }
+                } else if (trimmedLine.startsWith("HTTP/1.") || trimmedLine.startsWith("HTTP/2")) {
+                    mockStatus = trimmedLine;
+                    mode = "MOCK_RESPONSE";
                 } else if (trimmedLine.contains(":") && !trimmedLine.startsWith("//") && !trimmedLine.startsWith("/*")) {
                     int colonIndex = trimmedLine.indexOf(":");
                     String headerName = trimmedLine.substring(0, colonIndex).trim();
-                    // Basic validation for header name (no spaces, etc.)
                     if (!headerName.contains(" ") && !headerName.isEmpty()) {
-                        headers.put(headerName, trimmedLine.substring(colonIndex + 1).trim());
+                        String headerValue = trimmedLine.substring(colonIndex + 1).trim();
+                        if (mode.equals("MOCK_RESPONSE")) {
+                            mockHeaders.put(headerName, headerValue);
+                        } else {
+                            headers.put(headerName, headerValue);
+                        }
                     }
                 }
             } else if (mode.equals("REQUEST_BODY")) {
-                if (trimmedLine.startsWith("@")) {
-                    continue;
+                if (trimmedLine.startsWith("HTTP/1.") || trimmedLine.startsWith("HTTP/2")) {
+                    mockStatus = trimmedLine;
+                    mode = "MOCK_RESPONSE";
+                } else if (!trimmedLine.startsWith("@")) {
+                    body.append(line).append("\n");
                 }
-                body.append(line).append("\n");
+            } else if (mode.equals("MOCK_BODY")) {
+                mockBody.append(line).append("\n");
             }
         }
 
@@ -411,6 +429,14 @@ public class RestTestService {
         test.setUrl(url);
         test.setHeaders(headers);
         test.setBody(body.toString().trim());
+
+        if (mockStatus != null) {
+            HttpTest.MockResponse mock = new HttpTest.MockResponse();
+            mock.setStatus(mockStatus);
+            mock.setHeaders(mockHeaders);
+            mock.setBody(mockBody.toString().trim());
+            test.setMockResponse(mock);
+        }
 
         return test;
     }
@@ -621,37 +647,68 @@ public class RestTestService {
                 report.append("**Request Body:**\n\n```json\n").append(body).append("\n```\n\n");
             }
 
-            RestClient.Builder perRequestBuilder = builder.clone();
-            if (test.getTimeout() != null || test.getConnectionTimeout() != null) {
-                SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-                if (test.getTimeout() != null) {
-                    factory.setReadTimeout(test.getTimeout());
-                }
-                if (test.getConnectionTimeout() != null) {
-                    factory.setConnectTimeout(test.getConnectionTimeout());
-                }
-                perRequestBuilder.requestFactory(factory);
-            }
-            RestClient client = perRequestBuilder.build();
-            Map<String, String> maskedHeaders = new HashMap<>(headers);
-            if (maskedHeaders.containsKey("Authorization")) {
-                maskedHeaders.put("Authorization", "************");
-            }
-            log.info("Executing request: {} {} headers: {} body: {}", method, url, maskedHeaders, body);
-            RestClient.RequestBodySpec requestSpec = client.method(org.springframework.http.HttpMethod.valueOf(method))
-                    .uri(url);
-            headers.forEach(requestSpec::header);
-            
             ResponseEntity<String> responseEntity;
-            RestClient.ResponseSpec responseSpec = (body != null && !body.isEmpty())
-                    ? requestSpec.body(body).retrieve()
-                    : requestSpec.retrieve();
+            if (test.getMockResponse() != null) {
+                // Mock execution
+                HttpTest.MockResponse mock = test.getMockResponse();
+                int statusCode = 200;
+                String statusText = "OK";
+                if (mock.getStatus() != null) {
+                    String[] statusParts = mock.getStatus().split("\\s+", 3);
+                    if (statusParts.length >= 2) {
+                        try {
+                            statusCode = Integer.parseInt(statusParts[1]);
+                            if (statusParts.length >= 3) {
+                                statusText = statusParts[2];
+                            } else {
+                                statusText = org.springframework.http.HttpStatus.valueOf(statusCode).getReasonPhrase();
+                            }
+                        } catch (Exception e) {
+                            log.warn("Could not parse mock status: {}", mock.getStatus());
+                        }
+                    }
+                }
+                
+                org.springframework.http.HttpHeaders responseHeaders = new org.springframework.http.HttpHeaders();
+                mock.getHeaders().forEach((k, v) -> {
+                    responseHeaders.set(k, resolveVariables(v, allVars, iterationVarPath, iterationIndex));
+                });
+                String mockResponseBody = resolveVariables(mock.getBody(), allVars, iterationVarPath, iterationIndex);
+                responseEntity = new ResponseEntity<>(mockResponseBody, responseHeaders, org.springframework.http.HttpStatusCode.valueOf(statusCode));
+                report.append("> **Mock Response Intercepted**\n\n");
+            } else {
+                // Real execution
+                RestClient.Builder perRequestBuilder = builder.clone();
+                if (test.getTimeout() != null || test.getConnectionTimeout() != null) {
+                    SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+                    if (test.getTimeout() != null) {
+                        factory.setReadTimeout(test.getTimeout());
+                    }
+                    if (test.getConnectionTimeout() != null) {
+                        factory.setConnectTimeout(test.getConnectionTimeout());
+                    }
+                    perRequestBuilder.requestFactory(factory);
+                }
+                RestClient client = perRequestBuilder.build();
+                Map<String, String> maskedHeaders = new HashMap<>(headers);
+                if (maskedHeaders.containsKey("Authorization")) {
+                    maskedHeaders.put("Authorization", "************");
+                }
+                log.info("Executing request: {} {} headers: {} body: {}", method, url, maskedHeaders, body);
+                RestClient.RequestBodySpec requestSpec = client.method(org.springframework.http.HttpMethod.valueOf(method))
+                        .uri(url);
+                headers.forEach(requestSpec::header);
+                
+                RestClient.ResponseSpec responseSpec = (body != null && !body.isEmpty())
+                        ? requestSpec.body(body).retrieve()
+                        : requestSpec.retrieve();
 
-            responseEntity = responseSpec
-                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(), (req, resp) -> {
-                        // Do nothing, we want to handle all statuses manually in scripts
-                    })
-                    .toEntity(String.class);
+                responseEntity = responseSpec
+                        .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(), (req, resp) -> {
+                            // Do nothing, we want to handle all statuses manually in scripts
+                        })
+                        .toEntity(String.class);
+            }
 
             // Handle JSON body if applicable
             Object finalBody = responseEntity.getBody();

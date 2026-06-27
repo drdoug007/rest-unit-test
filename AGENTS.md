@@ -165,3 +165,7 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Implemented JSON management for Global Variables in the web UI, including a toggleable JSON editor with bidirectional synchronization.
 - Ensured consistent behavior between Environment Management and Global Variables modals for JSON data handling.
 - Added Environment Management feature documentation to `HOWTO.md`.
+- Implemented Integrated Mock Server capability, allowing users to define simulated responses within `.http` files.
+- Enhanced the test runner to intercept requests and return mock responses when defined.
+- Added support for variable resolution in mock response status, headers, and body.
+- Documented the Mock Server feature in `HOWTO.md`.

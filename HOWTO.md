@@ -33,6 +33,7 @@ This document provides a comprehensive guide and examples for using JavaScript i
     - [Variable Resolution & Priority](#variable-resolution--priority)
     - [Sensitive Variable Encryption](#sensitive-variable-encryption)
     - [Dynamic Database Switching](#dynamic-database-switching)
+10. [Integrated Mock Server](#integrated-mock-server)
 
 ---
 
@@ -341,3 +342,38 @@ You can target different databases for your tests by providing specific variable
 - `dbPassword`: The database password (automatically encrypted).
 
 If these variables are present, `client.sqlQuery()` and legacy SQL blocks will automatically connect to the specified database instead of the application's default data source.
+
+---
+
+## Integrated Mock Server
+
+The Integrated Mock Server allows you to define simulated API responses directly within your `.http` files. This is useful when external APIs are unstable, unavailable, or when you want to test specific error scenarios.
+
+### Defining a Mock Response
+To define a mock response, simply add the desired HTTP response syntax after your request:
+
+```http
+### Get User with Mock
+GET http://external-api.com/users/1
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "id": 1,
+  "name": "Mocked User",
+  "status": "{{userStatus}}"
+}
+
+> {%
+client.test("Check mocked response", function() {
+    client.assert(response.body.name === "Mocked User");
+});
+%}
+```
+
+### Key Features
+- **Interception**: The test runner detects the mock definition and intercepts the request, returning your defined response instead of making a real network call.
+- **Variable Resolution**: Variables in the mock status, headers, and body are automatically resolved using the current test context (environment, global, and local variables).
+- **Format**: Supports any standard HTTP response headers and body content.
+- **Visual Feedback**: The test report will indicate when a "Mock Response Intercepted" was used.
