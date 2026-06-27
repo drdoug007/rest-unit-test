@@ -40,6 +40,39 @@
     .play-button { color: #2ebf53; }
 }
 
+/* Visual Assertion Builder Styles */
+#report-content .hljs-attr, 
+#report-content .hljs-tag .hljs-name {
+    cursor: pointer;
+    border-bottom: 1px dashed transparent;
+    transition: all 0.2s;
+}
+
+#report-content .hljs-attr:hover, 
+#report-content .hljs-tag .hljs-name:hover {
+    border-bottom-color: var(--primary-color);
+    background-color: var(--hover-bg);
+}
+
+.assertion-toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background-color: var(--success-color);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 4px;
+    box-shadow: var(--shadow);
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+}
+
+.assertion-toast.show {
+    opacity: 1;
+}
+
 html, body {
     height: 100%;
     margin: 0;

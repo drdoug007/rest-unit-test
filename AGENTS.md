@@ -169,3 +169,8 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Enhanced the test runner to intercept requests and return mock responses when defined.
 - Added support for variable resolution in mock response status, headers, and body.
 - Documented the Mock Server feature in `HOWTO.md`.
+- Implemented Visual Assertion Builder in the web UI.
+- Added click listeners to JSON keys and XML tags in test reports to automatically generate `client.assert()` snippets.
+- Integrated the builder with the source editor to append generated assertions to post-script blocks.
+- Implemented smart JSON path detection and toast notifications for a better user experience.
+- Documented the Visual Assertion Builder in `HOWTO.md`.

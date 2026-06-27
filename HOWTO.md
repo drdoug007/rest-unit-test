@@ -377,3 +377,36 @@ client.test("Check mocked response", function() {
 - **Variable Resolution**: Variables in the mock status, headers, and body are automatically resolved using the current test context (environment, global, and local variables).
 - **Format**: Supports any standard HTTP response headers and body content.
 - **Visual Feedback**: The test report will indicate when a "Mock Response Intercepted" was used.
+
+---
+
+## Visual Assertion Builder
+
+The Visual Assertion Builder allows you to quickly generate assertions by clicking on elements in the response view.
+
+### Usage
+1. Run a test to see the response in the report panel.
+2. In the response body (JSON or XML), click on a key (JSON) or a tag name (XML).
+3. An assertion snippet will be automatically appended to the post-script block (`> {% ... %}`) in the source editor.
+
+### Example
+If you click on `"id"` in a JSON response:
+```json
+{
+  "id": 123
+}
+```
+The following code will be added to your `.http` file:
+```javascript
+> {%
+    client.test("Check id", () => {
+        client.assert(response.body.id === 123, "Expected id to be 123");
+    });
+%}
+```
+
+### Key Features
+- **Smart JSON Paths**: Automatically detects nested paths (e.g., `response.body.user.profile.name`).
+- **XML Support**: Generates DOM-based assertions using `getElementsByTagName`.
+- **Instant Feedback**: A toast notification confirms when an assertion has been added.
+- **Automatic Script Blocks**: Creates a new post-script block if one doesn't exist, or appends to the current one.

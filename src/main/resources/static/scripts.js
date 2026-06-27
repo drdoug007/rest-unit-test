@@ -848,6 +848,143 @@ function escapeHtml(text) {
                .replace(/'/g, '&#39;');
 }
 
+// Visual Assertion Builder Logic
+function showAssertionToast(message) {
+    let toast = document.querySelector('.assertion-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.className = 'assertion-toast';
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => {
+        toast.classList.remove('show');
+    }, 3000);
+}
+
+function getJsonPath(element) {
+    let path = [];
+    let current = element;
+    
+    // We expect element to be a .hljs-attr (JSON key)
+    const key = current.textContent.replace(/["':]/g, '').trim();
+    path.push(key);
+    
+    // Move up to find the containing object/array and its parent key
+    // This is tricky with hljs highlighted HTML because it's mostly flat
+    // But we can try to traverse the text content or previous siblings
+    
+    // Better approach: Find the full text of the code block and use a real JSON parser 
+    // to find the path, but that's hard from just a clicked DOM node.
+    
+    // Let's try to traverse the DOM siblings to find the nesting level.
+    // In hljs, JSON looks like: <span class="hljs-punctuation">{</span> ... <span class="hljs-attr">"key"</span> ...
+    
+    // Alternative: since we know the structure of the JSON being displayed, 
+    // we can use the indentation or punctuation to guess the path.
+    
+    return path.join('.');
+}
+
+function generateAssertion(element) {
+    const codeBlock = element.closest('pre code');
+    if (!codeBlock) return;
+    
+    const isJson = codeBlock.classList.contains('language-json');
+    const isXml = codeBlock.classList.contains('language-xml');
+    
+    if (!isJson && !isXml) return;
+    
+    let assertion = "";
+    const clickedText = element.textContent.replace(/["':]/g, '').trim();
+    
+    if (isJson) {
+        // More robust JSON path generation by parsing the raw text
+        const rawJson = codeBlock.textContent;
+        let data;
+        try {
+            data = JSON.parse(rawJson);
+        } catch (e) {
+            console.error("Failed to parse JSON for assertion generation", e);
+            return;
+        }
+
+        // Try to find the path to the clicked key
+        // Since we only have the key name, we'll look for it in the object
+        // If it's a deep object, we might find multiple matches.
+        // For now, we'll use a simple recursive search and take the first one.
+        function findPath(obj, targetKey, currentPath = "response.body") {
+            if (obj && typeof obj === 'object') {
+                if (Array.isArray(obj)) {
+                    for (let i = 0; i < obj.length; i++) {
+                        const path = findPath(obj[i], targetKey, `${currentPath}[${i}]`);
+                        if (path) return path;
+                    }
+                } else {
+                    if (Object.prototype.hasOwnProperty.call(obj, targetKey)) {
+                        return `${currentPath}.${targetKey}`;
+                    }
+                    for (const key in obj) {
+                        const path = findPath(obj[key], targetKey, `${currentPath}.${key}`);
+                        if (path) return path;
+                    }
+                }
+            }
+            return null;
+        }
+
+        const fullPath = findPath(data, clickedText) || `response.body.${clickedText}`;
+        
+        // Find the value for the assertion
+        let value = "";
+        let nextSibling = element.nextSibling;
+        while (nextSibling) {
+            const text = nextSibling.textContent.trim();
+            if (text && text !== ":" && text !== ",") {
+                value = text.replace(/["']/g, '');
+                break;
+            }
+            nextSibling = nextSibling.nextSibling;
+        }
+        
+        assertion = `client.test("Check ${clickedText}", () => {\n    client.assert(${fullPath} === ${isNaN(value) || value === "" ? `"${value}"` : value}, "Expected ${clickedText} to be ${value}");\n});`;
+    } else if (isXml) {
+        // For XML, use a simple getElementsByTagName or a more complex one if needed
+        assertion = `client.test("Check ${clickedText}", () => {\n    client.assert(response.body.getElementsByTagName("${clickedText}")[0].textContent === "value", "Expected ${clickedText} to have specific value");\n});`;
+    }
+    
+    if (assertion && cmEditor) {
+        const doc = cmEditor.state.doc;
+        const fullContent = doc.toString();
+        
+        // Find if there is already a post-script block
+        const postScriptMatch = fullContent.match(/> {%([\s\S]*?)%}/);
+        
+        if (postScriptMatch) {
+            // Append to existing post-script
+            const endIdx = fullContent.indexOf('%}', postScriptMatch.index);
+            cmEditor.dispatch({
+                changes: { from: endIdx, to: endIdx, insert: `\n    ${assertion}\n` }
+            });
+        } else {
+            // Create new post-script at the end
+            cmEditor.dispatch({
+                changes: { from: doc.length, to: doc.length, insert: `\n\n> {%\n    ${assertion}\n%}` }
+            });
+        }
+        
+        showAssertionToast(`Assertion for "${clickedText}" added!`);
+    }
+}
+
+reportContent.onclick = (e) => {
+    const target = e.target;
+    if (target.classList.contains('hljs-attr') || (target.classList.contains('hljs-name') && target.parentElement.classList.contains('hljs-tag'))) {
+        generateAssertion(target);
+    }
+};
+
 sourceBtn.onclick = async () => {
     if (isViewingSource) {
         reportContent.innerHTML = marked.parse(lastMarkdown);
