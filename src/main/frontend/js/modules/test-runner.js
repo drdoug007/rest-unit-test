@@ -1,4 +1,4 @@
-import { state, setEditor, sourceEditor, setEditorContent, editor as cmEditor, exportBtn, exportDropdown, reportContent, sourceBtn, testList, runViewBtn, debugCustomBtn, cloneBtn, runCustomBtn, saveCustomBtn, globalsBtn, getCustomTests, getCustomGlobals, saveCustomTest, saveCustomGlobals } from './core.js';
+import { state, setEditor, sourceEditor, setEditorContent, editor as cmEditor, exportBtn, exportDropdown, reportContent, sourceBtn, testList, runViewBtn, debugCustomBtn, cloneBtn, runCustomBtn, saveCustomBtn, globalsBtn, getCustomTests, getCustomGlobals, saveCustomTest, saveCustomGlobals, getSelectedEnvName } from './core.js';
 import { escapeHtml } from './utils.js';
 import { getSelectedEnvVars } from './env-manager.js';
 import { setReadOnly } from './editor.js';
@@ -158,7 +158,11 @@ export async function selectTest(name, element, isCustom) {
 export async function runTest(name, element, isCustom, debug = false) {
     const envVars = getSelectedEnvVars();
     const globals = isCustom ? (getCustomGlobals()[name] || {}) : {};
+    const selectedEnvName = getSelectedEnvName();
     const mergedGlobals = { ...envVars, ...globals };
+    if (selectedEnvName) {
+        mergedGlobals['__ENV_NAME__'] = selectedEnvName;
+    }
     
     reportContent.innerHTML = `<p class="loading">${debug ? 'Debugging' : 'Running'} test...</p>`;
     try {
@@ -186,7 +190,11 @@ export async function runSingleRequest(requestLine, lineIndex, debug = false) {
     const source = state.isEditing ? cmEditor.state.doc.toString() : state.lastSource;
     const envVars = getSelectedEnvVars();
     const globals = state.isCustomTest && state.currentTestName ? (getCustomGlobals()[state.currentTestName] || {}) : (state.unsavedGlobals || {});
+    const selectedEnvName = getSelectedEnvName();
     const mergedGlobals = { ...envVars, ...globals };
+    if (selectedEnvName) {
+        mergedGlobals['__ENV_NAME__'] = selectedEnvName;
+    }
     
     reportContent.innerHTML = `<p class="loading">${debug ? 'Debugging' : 'Running'} request...</p>`;
     try {

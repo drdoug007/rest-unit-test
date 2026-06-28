@@ -3,41 +3,38 @@
 ## Project Overview
 This application reads an extended Jetbrains HTTPClient file to run unit tests against a Rest Server.
 It uses the GraalJS engine to execute the JavaScript code before and after each test.
-The Rest Server connects to an external JDBC database. Along with executing the JavaScript code. 
-The .http files can include SQL code before and executing the Rest call.
-This allows the JavaScript code to process the result set from the SQL Queries
+The Rest Server connects to an external JDBC database. In addition to executing JavaScript code, `.http` files can include SQL queries both before and after the REST call. This allows scripts to verify database state or use query results to drive test logic.
 
-This server will implement a REST API to allow for integration-based testing.
-The API will read the .http files and execute the corresponding REST requests and SQL scripts based on the defined configuration.
-It will then output the results in Markdown format. 
+This server implements a REST API to allow for integration-based testing. It reads `.http` files and executes the corresponding REST requests and SQL scripts based on the defined configuration, outputting the results in a detailed Markdown format. 
 
 ## Example .http file
 
-``` http request 
+```http request
+### Get Cars from Joe's Cars 
 < {%
     const dealer = "Joes Cars"
-    request.variables.set("dealer", dealer)
-%>
-### Get Cars from Joe's Cars 
-GET http://localhost:8080/api/car-dealer/cars?dealer={{dealer}}
-> {%SQL
-    # Comment - The default dataSource is the Spring JDBC Primary dataSource
-    # The :dealer comes from the JavaScript request variable
-    ### DataSource = default
-    ### Query = "select * FROM car_dealer.car_dealer_cars WHERE dealer = :dealer
-    ### ResultSet ||Id|Make|Model|Color||
+    client.global.set("dealer", dealer)
 %}
+GET {{baseUrl}}/api/cardealer/cars?dealer={{dealer}}
+Authorization: Basic {{username}} {{password}}
 
 > {%
     client.test("Request executed successfully", function () {
         client.assert(response.status === 200, "Response status is not 200");
-        # Result Set is a Json Array 
-        const resultSet = client.global.get("ResultSet");
-        client.assert(resultSet.length > 1, "No rows returned");
-        
+    });
+
+    const sql = "SELECT id, make, model, color FROM car_dealer_cars WHERE dealer = '" + client.global.get("dealer") + "'";
+    const result = client.sqlQuery(sql);
+    
+    markdowner.heading(3, "Database Verification");
+    markdowner.codeBlock("sql", sql, true);
+    markdowner.table(result.columns, result.data);
+
+    client.test("SQL query returned results", function () {
+        // Result set data is a Json Array
+        client.assert(result.data.length > 0, "No rows returned from database");
     });
 %}
-
 ```
 
 ## Dependencies
@@ -47,6 +44,6 @@ GET http://localhost:8080/api/car-dealer/cars?dealer={{dealer}}
 - Spring Boot (Framework for the application) latest v4.1.0
 - [x] Implement implementation
 - [x] Create unit tests for this project.
-- 
+- [x] Include date and time in test reports.
 
 

@@ -164,6 +164,7 @@ public class RestTestServiceTest {
 
         String result = restTestService.runTestWithContent("Custom Test", content);
         assertTrue(result.contains("# Test Report: Custom Test"));
+        assertTrue(result.contains("Date: "), "Report should include the execution date and time");
         assertTrue(result.contains("## Custom Test"));
     }
     @Test
@@ -188,6 +189,29 @@ public class RestTestServiceTest {
 
         assertTrue(report.contains("Test Report: Test with App Globals"));
         Mockito.verify(requestBodyUriSpec).uri(contains("var=globalValue"));
+    }
+
+    @Test
+    public void testEnvironmentNamePrioritization() {
+        String content = "### Env Test\nGET http://example.com";
+        ResponseEntity<String> responseEntity = new ResponseEntity<>("OK", HttpStatus.OK);
+        when(responseSpec.toEntity(String.class)).thenReturn(responseEntity);
+
+        // 1. No environment name in globals, should use appProperties
+        appProperties.getEnvironment().setName("ConfigEnv");
+        String result1 = restTestService.runTestWithContent("Env Test 1", content);
+        assertTrue(result1.contains("Environment: ConfigEnv"));
+
+        // 2. Environment name in globals, should prioritize it
+        Map<String, Object> globals = new HashMap<>();
+        globals.put("__ENV_NAME__", "BrowserEnv");
+        String result2 = restTestService.runTestWithContent("Env Test 2", content, globals);
+        assertTrue(result2.contains("Environment: BrowserEnv"));
+        
+        // Check if JS variable environmentName is also updated
+        String contentWithJS = "### Env JS Test\nGET http://example.com\n> {%\n client.test('env name', function() { client.assert(client.global.get('environmentName') === 'BrowserEnv'); });\n%}";
+        String result3 = restTestService.runTestWithContent("Env JS Test", contentWithJS, globals);
+        assertTrue(result3.contains("✅ env name"));
     }
 
     @Test

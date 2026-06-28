@@ -26,6 +26,8 @@ import javax.sql.DataSource;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -171,10 +173,20 @@ public class RestTestService {
             Map<String, String> inplaceVariables = parseInplaceVariables(content);
             List<HttpTest> tests = parseHttpFile(content, baseOffset);
             StringBuilder report = new StringBuilder();
-            if (appProperties != null && appProperties.getEnvironment() != null) {
-                report.append("Environment: ").append(appProperties.getEnvironment().getName()).append("\n\n");
+            
+            String environmentName = null;
+            if (globals != null && globals.containsKey("__ENV_NAME__")) {
+                environmentName = (String) globals.get("__ENV_NAME__");
+            } else if (appProperties != null && appProperties.getEnvironment() != null) {
+                environmentName = appProperties.getEnvironment().getName();
             }
-            report.append("# Test Report: ").append(testName).append("\n\n");
+
+            if (environmentName != null) {
+                report.append("Environment: ").append(environmentName).append("\n\n");
+            }
+
+            report.append("# Test Report: ").append(testName).append("\n");
+            report.append("Date: ").append(LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"))).append("\n\n");
 
             RequestJS requestJS = new RequestJS();
             HttpClientJS httpClientJS = new HttpClientJS();
@@ -189,8 +201,9 @@ public class RestTestService {
                     } else {
                         requestJS.getVariables().set("baseUrl", "{{baseUrl}}");
                     }
-                    if (appProperties.getEnvironment().getName() != null) {
-                        requestJS.getVariables().set("environmentName", appProperties.getEnvironment().getName());
+                    if (environmentName != null) {
+                        requestJS.getVariables().set("environmentName", environmentName);
+                        httpClientJS.getGlobal().set("environmentName", environmentName);
                     }
                 }
                 
