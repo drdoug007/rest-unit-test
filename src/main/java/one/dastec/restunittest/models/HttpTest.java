@@ -16,8 +16,10 @@ public class HttpTest {
     private String postScript;
     private Integer timeout;
     private Integer connectionTimeout;
-    private List<PreAction> preActions = new ArrayList<>();
+    private List<ScriptAction> preActions = new ArrayList<>();
+    private List<ScriptAction> postActions = new ArrayList<>();
     private MockResponse mockResponse;
+    private int postScriptLineOffset;
 
     public static class MockResponse {
         private String status;
@@ -32,17 +34,24 @@ public class HttpTest {
         public void setBody(String body) { this.body = body; }
     }
 
-    public static class PreAction {
+    public static class ScriptAction {
         private final String type; // JS or SQL
         private final String content;
+        private final int lineOffset;
 
-        public PreAction(String type, String content) {
+        public ScriptAction(String type, String content) {
+            this(type, content, 0);
+        }
+
+        public ScriptAction(String type, String content, int lineOffset) {
             this.type = type;
             this.content = content;
+            this.lineOffset = lineOffset;
         }
 
         public String getType() { return type; }
         public String getContent() { return content; }
+        public int getLineOffset() { return lineOffset; }
     }
 
     // Getters and Setters
@@ -66,8 +75,12 @@ public class HttpTest {
     public void setTimeout(Integer timeout) { this.timeout = timeout; }
     public Integer getConnectionTimeout() { return connectionTimeout; }
     public void setConnectionTimeout(Integer connectionTimeout) { this.connectionTimeout = connectionTimeout; }
-    public List<PreAction> getPreActions() { return preActions; }
-    public void setPreActions(List<PreAction> preActions) { this.preActions = preActions; }
+    public List<ScriptAction> getPreActions() { return preActions; }
+    public void setPreActions(List<ScriptAction> preActions) { this.preActions = preActions; }
+    public List<ScriptAction> getPostActions() { return postActions; }
+    public void setPostActions(List<ScriptAction> postActions) { this.postActions = postActions; }
     public MockResponse getMockResponse() { return mockResponse; }
     public void setMockResponse(MockResponse mockResponse) { this.mockResponse = mockResponse; }
+    public int getPostScriptLineOffset() { return postScriptLineOffset; }
+    public void setPostScriptLineOffset(int postScriptLineOffset) { this.postScriptLineOffset = postScriptLineOffset; }
 }

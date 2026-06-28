@@ -1,6 +1,5 @@
 export const testList = document.getElementById('test-list');
 export const reportContent = document.getElementById('report-content');
-export const sourceContent = document.getElementById('source-content');
 export const exportBtn = document.getElementById('export-btn');
 export const exportDropdown = document.getElementById('export-dropdown');
 export const exportOptions = document.getElementById('export-options');
@@ -9,8 +8,10 @@ export const exportWordBtn = document.getElementById('export-word-btn');
 export const sourceBtn = document.getElementById('source-btn');
 export const cloneBtn = document.getElementById('clone-btn');
 export const runViewBtn = document.getElementById('run-view-btn');
+export const debugViewBtn = document.getElementById('debug-view-btn');
 export const saveCustomBtn = document.getElementById('save-custom-btn');
 export const runCustomBtn = document.getElementById('run-custom-btn');
+export const debugCustomBtn = document.getElementById('debug-custom-btn');
 export const globalsBtn = document.getElementById('globals-btn');
 export const addTestBtn = document.getElementById('add-test-btn');
 export const importBtnSidebar = document.getElementById('import-btn-sidebar');
@@ -20,8 +21,6 @@ export const importUrlBtn = document.getElementById('import-url-btn');
 export const importPasteBtn = document.getElementById('import-paste-btn');
 export const importFileInput = document.getElementById('import-file-input');
 export const sourceEditor = document.getElementById('source-editor');
-export const sourceCode = document.getElementById('source-code');
-export const sourceGutter = document.getElementById('source-gutter');
 
 // Modals
 export const envModal = document.getElementById('env-modal');

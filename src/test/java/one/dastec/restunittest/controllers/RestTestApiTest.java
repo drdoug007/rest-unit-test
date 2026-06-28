@@ -45,12 +45,12 @@ class RestTestApiTest {
         globals.put("token", "secret");
         request.setGlobals(globals);
 
-        when(restTestService.runTestWithContent(eq("My Custom Test"), eq("GET http://localhost:8080"), anyMap()))
+        when(restTestService.runTestWithContent(eq("My Custom Test"), eq("GET http://localhost:8080"), anyMap(), anyBoolean()))
                 .thenReturn("Report");
 
-        String result = restTestApi.runTestCustom(request);
+        String result = restTestApi.runTestCustom(request, false);
 
         assertEquals("Report", result);
-        Mockito.verify(restTestService).runTestWithContent(eq("My Custom Test"), eq("GET http://localhost:8080"), eq(globals));
+        Mockito.verify(restTestService).runTestWithContent(eq("My Custom Test"), eq("GET http://localhost:8080"), eq(globals), eq(false));
     }
 }

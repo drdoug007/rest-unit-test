@@ -46,6 +46,14 @@
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-websocket</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>com.fasterxml.jackson.core</groupId>
+			<artifactId>jackson-databind</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-jdbc</artifactId>
 		</dependency>
 		<dependency>
@@ -72,6 +80,18 @@
 			<artifactId>js</artifactId>
 			<version>${graalvm.version}</version>
 			<type>pom</type>
+		</dependency>
+		<dependency>
+			<groupId>org.graalvm.polyglot</groupId>
+			<artifactId>tools</artifactId>
+			<version>${graalvm.version}</version>
+			<type>pom</type>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.graalvm.truffle</groupId>
+			<artifactId>truffle-api</artifactId>
+			<version>${graalvm.version}</version>
 		</dependency>
 		<dependency>
 			<groupId>com.jayway.jsonpath</groupId>

@@ -1,11 +1,14 @@
-import { state, editor as cmEditor, reportContent, sourceCode, sourceEditor, sourceContent, runCustomBtn, saveCustomBtn, globalsBtn, runViewBtn, cloneBtn, sourceBtn, testList, addTestBtn, setEditorContent, exportBtn, exportDropdown, saveCustomTest, saveCustomGlobals, getCustomTests, getCustomGlobals } from './core.js';
+import { state, editor as cmEditor, reportContent, sourceEditor, runCustomBtn, debugCustomBtn, debugViewBtn, saveCustomBtn, globalsBtn, runViewBtn, cloneBtn, sourceBtn, testList, addTestBtn, setEditorContent, exportBtn, exportDropdown, saveCustomTest, saveCustomGlobals, getCustomTests, getCustomGlobals } from './core.js';
 import { fetchTests, runTest, highlightHttpSource } from './test-runner.js';
 import { getSelectedEnvVars } from './env-manager.js';
-import { updateEditorTheme } from './editor.js';
+import { updateEditorTheme, setReadOnly } from './editor.js';
+import { initDebugger, resume, stepOver, stepInto, stepOut, stop } from './debugger.js';
 import { marked } from 'marked';
 import hljs from 'highlight.js';
 
 export function setupInit() {
+    initDebugger();
+
     function updateHighlightTheme() {
         const hljsStyle = document.getElementById('hljs-style');
         if (hljsStyle) {
@@ -31,7 +34,11 @@ export function setupInit() {
     };
 
     // Source panel and custom test actions
-    if (addTestBtn) addTestBtn.onclick = () => {
+    if (addTestBtn) addTestBtn.onclick = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
         try {
             state.currentTestName = '';
             state.unsavedGlobals = null;
@@ -41,17 +48,17 @@ export function setupInit() {
             setEditorContent(state.lastSource);
             
             const se = document.getElementById('source-editor');
-            const sc = document.getElementById('source-content');
-            if (sc) sc.style.display = 'none';
             if (se) {
                 se.style.display = 'block';
                 se.parentElement.classList.add('show');
             }
             
             if (runCustomBtn) runCustomBtn.style.display = 'inline-block';
+            if (debugCustomBtn) debugCustomBtn.style.display = 'inline-block';
             if (saveCustomBtn) saveCustomBtn.style.display = 'inline-block';
             if (globalsBtn) globalsBtn.style.display = 'inline-block';
             if (runViewBtn) runViewBtn.style.display = 'none';
+            if (debugViewBtn) debugViewBtn.style.display = 'none';
             if (cloneBtn) {
                 cloneBtn.style.display = 'inline-block';
                 cloneBtn.textContent = 'Cancel';
@@ -65,74 +72,121 @@ export function setupInit() {
         }
     };
 
-    if (cloneBtn) cloneBtn.onclick = () => {
-        if (state.isCustomTest) {
-            if (state.isEditing) {
-                if (state.currentTestName === '') {
-                    state.isEditing = false;
-                    state.isCustomTest = false;
-                    sourceEditor.style.display = 'none';
-                    sourceContent.style.display = 'block';
-                    runCustomBtn.style.display = 'none';
-                    saveCustomBtn.style.display = 'none';
-                    globalsBtn.style.display = 'none';
-                    runViewBtn.style.display = 'none';
-                    cloneBtn.style.display = 'none';
-                    cloneBtn.textContent = 'Clone';
-                    reportContent.innerHTML = '<p>Test creation cancelled.</p>';
-                } else {
-                    const originalContent = getCustomTests()[state.currentTestName];
-                    setEditorContent(originalContent);
-                    state.unsavedGlobals = null;
-                }
-            } else {
-                state.isEditing = true;
-                setEditorContent(state.lastSource);
-                sourceContent.style.display = 'none';
-                sourceEditor.style.display = 'block';
-                runCustomBtn.style.display = 'inline-block';
-                saveCustomBtn.style.display = 'inline-block';
-                globalsBtn.style.display = 'inline-block';
-                runViewBtn.style.display = 'none';
-                cloneBtn.textContent = 'Cancel';
-                sourceBtn.style.display = 'none';
-            }
-        } else {
+    if (cloneBtn) cloneBtn.onclick = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        const btnText = cloneBtn.textContent.trim();
+
+        if (btnText === 'Clone' || btnText === 'Edit') {
             state.isEditing = true;
-            state.isCustomTest = true;
-            state.currentTestName = '';
-            state.unsavedGlobals = null;
+            if (btnText === 'Clone') {
+                state.currentTestName = '';
+                state.isCustomTest = true;
+                state.unsavedGlobals = null;
+            }
             setEditorContent(state.lastSource);
-            sourceContent.style.display = 'none';
+            setReadOnly(false);
             sourceEditor.style.display = 'block';
-            runCustomBtn.style.display = 'inline-block';
-            saveCustomBtn.style.display = 'inline-block';
-            globalsBtn.style.display = 'inline-block';
-            runViewBtn.style.display = 'none';
+            sourceEditor.parentElement.classList.add('show');
+            if (runCustomBtn) runCustomBtn.style.display = 'inline-block';
+            if (debugCustomBtn) debugCustomBtn.style.display = 'inline-block';
+            if (saveCustomBtn) saveCustomBtn.style.display = 'inline-block';
+            if (globalsBtn) globalsBtn.style.display = 'inline-block';
+            if (runViewBtn) runViewBtn.style.display = 'none';
+            if (debugViewBtn) debugViewBtn.style.display = 'none';
             cloneBtn.textContent = 'Cancel';
-            sourceBtn.style.display = 'none';
-            document.querySelectorAll('#test-list li').forEach(li => li.classList.remove('active'));
+            if (window.innerWidth >= 1024) sourceBtn.style.display = 'none';
+        } else {
+            // Cancel
+            state.isEditing = false;
+            if (state.currentTestName === '') {
+                // New/Clone
+                const activeLi = document.querySelector('#test-list li.active');
+                if (activeLi) {
+                    activeLi.click();
+                    return;
+                }
+                sourceEditor.style.display = 'none';
+                sourceEditor.parentElement.classList.remove('show');
+                runCustomBtn.style.display = 'none';
+                if (debugCustomBtn) debugCustomBtn.style.display = 'none';
+                saveCustomBtn.style.display = 'none';
+                globalsBtn.style.display = 'none';
+                cloneBtn.style.display = 'none';
+                reportContent.innerHTML = '<p>Operation cancelled.</p>';
+            } else {
+                // Editing existing custom
+                const originalContent = getCustomTests()[state.currentTestName];
+                setEditorContent(originalContent);
+                state.lastSource = originalContent;
+                setReadOnly(true);
+                cloneBtn.textContent = 'Edit';
+                runCustomBtn.style.display = 'none';
+                if (debugCustomBtn) debugCustomBtn.style.display = 'inline-block';
+                saveCustomBtn.style.display = 'none';
+                globalsBtn.style.display = 'none';
+                runViewBtn.style.display = 'inline-block';
+                if (debugViewBtn) debugViewBtn.style.display = 'none';
+            }
+            if (window.innerWidth >= 1024) sourceBtn.style.display = 'none';
+            else sourceBtn.style.display = 'inline-block';
         }
     };
 
-    if (runViewBtn) runViewBtn.onclick = () => {
+    if (runViewBtn) runViewBtn.onclick = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
         const activeLi = testList.querySelector('li.active');
         if (activeLi) {
             const testName = activeLi.getAttribute('data-name');
             const isCustom = activeLi.querySelector('.custom-tag') !== null;
-            runTest(testName, activeLi, isCustom);
+            runTest(testName, activeLi, isCustom, false);
         }
     };
 
-    if (runCustomBtn) runCustomBtn.onclick = async () => {
+    if (debugViewBtn) debugViewBtn.onclick = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        const activeLi = testList.querySelector('li.active');
+        if (activeLi) {
+            const testName = activeLi.getAttribute('data-name');
+            const isCustom = activeLi.querySelector('.custom-tag') !== null;
+            runTest(testName, activeLi, isCustom, true);
+        }
+    };
+
+    if (runCustomBtn) runCustomBtn.onclick = async (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        executeCustomTest(false);
+    };
+
+    if (debugCustomBtn) debugCustomBtn.onclick = async (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        executeCustomTest(true);
+    };
+
+    async function executeCustomTest(debug = false) {
         const editedCode = cmEditor ? cmEditor.state.doc.toString() : '';
         const envVars = getSelectedEnvVars();
         const globals = (state.currentTestName ? (getCustomGlobals()[state.currentTestName] || {}) : (state.unsavedGlobals || {}));
         const mergedGlobals = { ...envVars, ...globals };
         
-        reportContent.innerHTML = '<p class="loading">Running custom test...</p>';
+        reportContent.innerHTML = `<p class="loading">${debug ? 'Debugging' : 'Running'} custom test...</p>`;
         try {
-            const response = await fetch('/api/runtest/custom', {
+            const response = await fetch(`/api/runtest/custom${debug ? '?debug=true' : ''}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json; charset=UTF-8' },
                 body: JSON.stringify({
@@ -161,7 +215,6 @@ export function setupInit() {
             state.lastMarkdown = await response.text();
             state.lastSource = editedCode;
             reportContent.innerHTML = marked.parse(state.lastMarkdown);
-            sourceCode.textContent = state.lastSource;
             exportBtn.style.display = 'block';
             exportDropdown.style.display = 'inline-block';
             setTimeout(() => {
@@ -175,11 +228,15 @@ export function setupInit() {
             cloneBtn.textContent = 'Cancel';
             if (window.innerWidth >= 1024) sourceBtn.style.display = 'none';
         } catch (error) {
-            reportContent.innerHTML = `<p style="color: red">Error running custom test: ${error.message}</p>`;
+            reportContent.innerHTML = `<p style="color: red">Error ${debug ? 'debugging' : 'running'} custom test: ${error.message}</p>`;
         }
-    };
+    }
 
-    if (saveCustomBtn) saveCustomBtn.onclick = () => {
+    if (saveCustomBtn) saveCustomBtn.onclick = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
         const editedCode = cmEditor ? cmEditor.state.doc.toString() : '';
         if (!state.isCustomTest || state.currentTestName === '') {
             const saveName = prompt('Enter a name for this custom test:', state.currentTestName ? state.currentTestName + ' (Clone)' : 'New Test');
@@ -192,7 +249,6 @@ export function setupInit() {
                 state.currentTestName = saveName;
                 state.isCustomTest = true;
                 state.lastSource = editedCode;
-                sourceCode.textContent = state.lastSource;
                 fetchTests();
                 state.isEditing = true;
                 cloneBtn.textContent = 'Cancel';
@@ -201,7 +257,6 @@ export function setupInit() {
         } else {
             saveCustomTest(state.currentTestName, editedCode);
             state.lastSource = editedCode;
-            sourceCode.textContent = state.lastSource;
             state.isEditing = true;
             cloneBtn.textContent = 'Cancel';
             if (window.innerWidth >= 1024) sourceBtn.style.display = 'none';
@@ -210,7 +265,30 @@ export function setupInit() {
     };
     
     if (sourceBtn) sourceBtn.onclick = () => {
-        sourceContent.parentElement.classList.toggle('show');
+        sourceEditor.parentElement.classList.toggle('show');
+    };
+
+    // Debugger controls
+    const debugResumeBtn = document.getElementById('debug-resume-btn');
+    const debugStepOverBtn = document.getElementById('debug-step-over-btn');
+    const debugStepIntoBtn = document.getElementById('debug-step-into-btn');
+    const debugStepOutBtn = document.getElementById('debug-step-out-btn');
+    const debugStopBtn = document.getElementById('debug-stop-btn');
+
+    if (debugResumeBtn) debugResumeBtn.onclick = resume;
+    if (debugStepOverBtn) debugStepOverBtn.onclick = stepOver;
+    if (debugStepIntoBtn) debugStepIntoBtn.onclick = stepInto;
+    if (debugStepOutBtn) debugStepOutBtn.onclick = stepOut;
+    if (debugStopBtn) debugStopBtn.onclick = stop;
+
+    // Keyboard shortcuts for debugger
+    window.onkeydown = (e) => {
+        if (document.getElementById('debugger-controls').style.display !== 'none') {
+            if (e.key === 'F8') { e.preventDefault(); resume(); }
+            if (e.key === 'F10') { e.preventDefault(); stepOver(); }
+            if (e.key === 'F11' && !e.shiftKey) { e.preventDefault(); stepInto(); }
+            if (e.key === 'F11' && e.shiftKey) { e.preventDefault(); stepOut(); }
+        }
     };
 }
 

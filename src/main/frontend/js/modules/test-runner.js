@@ -1,6 +1,7 @@
-import { state, setEditor, sourceEditor, sourceContent, setEditorContent, editor as cmEditor, exportBtn, exportDropdown, reportContent, sourceCode, sourceBtn, sourceGutter, testList, runViewBtn, cloneBtn, runCustomBtn, saveCustomBtn, globalsBtn, getCustomTests, getCustomGlobals, saveCustomTest, saveCustomGlobals } from './core.js';
+import { state, setEditor, sourceEditor, setEditorContent, editor as cmEditor, exportBtn, exportDropdown, reportContent, sourceBtn, testList, runViewBtn, debugCustomBtn, cloneBtn, runCustomBtn, saveCustomBtn, globalsBtn, getCustomTests, getCustomGlobals, saveCustomTest, saveCustomGlobals } from './core.js';
 import { escapeHtml } from './utils.js';
 import { getSelectedEnvVars } from './env-manager.js';
+import { setReadOnly } from './editor.js';
 import { marked } from 'marked';
 import hljs from 'highlight.js';
 
@@ -103,10 +104,14 @@ export async function selectTest(name, element, isCustom) {
         state.lastSource = content;
         state.isEditing = true;
         setEditorContent(content);
-        if (sourceContent) sourceContent.style.display = 'none';
-        if (sourceEditor) sourceEditor.style.display = 'block';
+        setReadOnly(false);
+        if (sourceEditor) {
+            sourceEditor.style.display = 'block';
+            sourceEditor.parentElement.classList.add('show');
+        }
         if (runViewBtn) runViewBtn.style.display = 'none';
         if (runCustomBtn) runCustomBtn.style.display = 'inline-block';
+        if (debugCustomBtn) debugCustomBtn.style.display = 'inline-block';
         if (saveCustomBtn) saveCustomBtn.style.display = 'inline-block';
         if (globalsBtn) globalsBtn.style.display = 'inline-block';
         if (cloneBtn) {
@@ -118,9 +123,13 @@ export async function selectTest(name, element, isCustom) {
         reportContent.innerHTML = `<p>Editing custom test: <strong>${name}</strong></p>`;
     } else {
         state.isEditing = false;
-        if (sourceEditor) sourceEditor.style.display = 'none';
-        if (sourceContent) sourceContent.style.display = 'block';
+        if (sourceEditor) {
+            sourceEditor.style.display = 'block';
+            sourceEditor.parentElement.classList.add('show');
+        }
+        setReadOnly(true);
         if (runViewBtn) runViewBtn.style.display = 'inline-block';
+        if (debugCustomBtn) debugCustomBtn.style.display = 'inline-block';
         if (runCustomBtn) runCustomBtn.style.display = 'none';
         if (saveCustomBtn) saveCustomBtn.style.display = 'none';
         if (globalsBtn) globalsBtn.style.display = 'none';
@@ -135,10 +144,7 @@ export async function selectTest(name, element, isCustom) {
             const response = await fetch(`/api/test/${encodeURIComponent(name)}`);
             if (response.ok) {
                 state.lastSource = await response.text();
-                if (sourceCode) {
-                    sourceCode.textContent = state.lastSource;
-                    highlightHttpSource(sourceCode);
-                }
+                setEditorContent(state.lastSource);
             } else {
                 console.error(`Failed to fetch source: ${response.status}`);
             }
@@ -149,14 +155,14 @@ export async function selectTest(name, element, isCustom) {
     }
 }
 
-export async function runTest(name, element, isCustom) {
+export async function runTest(name, element, isCustom, debug = false) {
     const envVars = getSelectedEnvVars();
     const globals = isCustom ? (getCustomGlobals()[name] || {}) : {};
     const mergedGlobals = { ...envVars, ...globals };
     
-    reportContent.innerHTML = '<p class="loading">Running test...</p>';
+    reportContent.innerHTML = `<p class="loading">${debug ? 'Debugging' : 'Running'} test...</p>`;
     try {
-        const response = await fetch(`/api/runtest/${encodeURIComponent(name)}`, {
+        const response = await fetch(`/api/runtest/${encodeURIComponent(name)}${debug ? '?debug=true' : ''}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(mergedGlobals)
@@ -176,15 +182,15 @@ export async function runTest(name, element, isCustom) {
     }
 }
 
-export async function runSingleRequest(requestLine, lineIndex) {
+export async function runSingleRequest(requestLine, lineIndex, debug = false) {
     const source = state.isEditing ? cmEditor.state.doc.toString() : state.lastSource;
     const envVars = getSelectedEnvVars();
     const globals = state.isCustomTest && state.currentTestName ? (getCustomGlobals()[state.currentTestName] || {}) : (state.unsavedGlobals || {});
     const mergedGlobals = { ...envVars, ...globals };
     
-    reportContent.innerHTML = '<p class="loading">Running request...</p>';
+    reportContent.innerHTML = `<p class="loading">${debug ? 'Debugging' : 'Running'} request...</p>`;
     try {
-        const response = await fetch('/api/runtest/single', {
+        const response = await fetch(`/api/runtest/single${debug ? '?debug=true' : ''}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json; charset=UTF-8' },
             body: JSON.stringify({

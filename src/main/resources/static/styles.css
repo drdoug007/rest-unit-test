@@ -750,3 +750,117 @@ pre {
     border-radius: 4px;
     font-size: 13px;
 }
+
+
+/* Debugger Styles */
+.debugger-controls {
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+    background-color: var(--table-header-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    margin-bottom: 10px;
+    align-items: center;
+    justify-content: center;
+}
+
+.debugger-controls button {
+    padding: 6px 12px;
+    border: 1px solid var(--border-color);
+    background-color: var(--panel-bg);
+    color: var(--text-color);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+
+.debugger-controls button:hover {
+    background-color: var(--hover-bg);
+    border-color: var(--primary-color);
+}
+
+.cm-breakpoint-gutter {
+    width: 20px;
+    cursor: pointer;
+}
+
+.breakpoint-marker {
+    width: 12px;
+    height: 12px;
+    background-color: #dc3545;
+    border-radius: 50%;
+    margin: 4px auto;
+}
+
+.cm-debug-line {
+    background-color: rgba(255, 255, 0, 0.2);
+}
+
+.debugger-variables {
+    background-color: var(--panel-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    margin-bottom: 10px;
+    padding: 0;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.debugger-variables-header {
+    background-color: var(--table-header-bg);
+    padding: 5px 10px;
+    font-weight: bold;
+    font-size: 12px;
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+}
+
+.variables-list {
+    padding: 5px 10px;
+    font-family: monospace;
+    font-size: 12px;
+}
+
+.variable-item {
+    display: flex;
+    padding: 2px 0;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.variable-item:last-child {
+    border-bottom: none;
+}
+
+.variable-name {
+    color: var(--primary-color);
+    margin-right: 5px;
+    font-weight: bold;
+}
+
+.variable-value {
+    color: var(--text-color);
+    word-break: break-all;
+}
+
+.cm-debug-gutter {
+    width: 20px;
+}
+
+.debug-marker {
+    color: #ffc107;
+    font-weight: bold;
+    text-align: center;
+}
+
+.cm-breakpoint-gutter .cm-gutterElement:hover::before {
+    content: "";
+    display: block;
+    width: 12px;
+    height: 12px;
+    background-color: rgba(220, 53, 69, 0.3);
+    border-radius: 50%;
+    margin: 4px auto;
+}

@@ -212,3 +212,6 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Refactored the sidebar layout using flexbox to resolve large gaps between test names and tags.
 - Enhanced `RestTestApi` with a `POST /api/runtest/single` endpoint and `SingleRequest` model to support running individual requests from the editor.
 - Updated `BaseE2ETest` with a fixed desktop viewport to ensure consistent UI rendering and visibility during E2E tests.
+- Implemented an interactive JavaScript debugger for GraalJS script blocks with step-through capabilities (Resume, Step Over, etc.) in the Web UI.
+- Enhanced the debugger to correctly highlight the current execution line and display a gutter marker in the browser.
+- Fixed absolute line mapping for script blocks to ensure accurate breakpoint hits and execution point visualization.

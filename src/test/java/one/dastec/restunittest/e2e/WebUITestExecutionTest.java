@@ -16,7 +16,7 @@ public class WebUITestExecutionTest extends BaseE2ETest {
         page.click("text=cardealer");
         
         // Wait for source code to load
-        assertThat(page.locator("#source-code")).containsText("GET");
+        assertThat(page.locator(".cm-content")).containsText("GET");
         
         // Click the Run button (green one in the source panel)
         page.click("#run-view-btn");

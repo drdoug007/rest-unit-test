@@ -144,7 +144,7 @@ public class SourcePanelButtonsTest extends BaseE2ETest {
         // Click Cancel
         cloneBtn.click();
         assertThat(cloneBtn).hasText("Clone");
-        assertThat(page.locator("#source-content")).isVisible();
+        assertThat(page.locator("#source-editor")).isVisible();
     }
 
     @Test

@@ -12,7 +12,6 @@ import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.rowset.SqlRowSet;
@@ -40,6 +39,7 @@ public class RestTestService {
     private final GraalJsService graalJsService;
     private final AppProperties appProperties;
     private final CryptoService cryptoService;
+    private final one.dastec.restunittest.debugger.DebuggerService debuggerService;
 
 
     private final UtilsJS utilsJS = new UtilsJS();
@@ -47,12 +47,22 @@ public class RestTestService {
     private final SubtleCryptoJS subtleCryptoJS = new SubtleCryptoJS();
     private final JwtJS jwtJS = new JwtJS();
 
-    public RestTestService(DataSource dataSource, JdbcTemplate jdbcTemplate, RestClient.Builder builder, GraalJsService graalJsService, AppProperties appProperties, CryptoService cryptoService) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public RestTestService(DataSource dataSource, JdbcTemplate jdbcTemplate, RestClient.Builder builder, GraalJsService graalJsService, AppProperties appProperties, CryptoService cryptoService, one.dastec.restunittest.debugger.DebuggerService debuggerService) {
         this.jdbcTemplate = jdbcTemplate;
         this.builder = builder;
         this.graalJsService = graalJsService;
         this.appProperties = appProperties;
         this.cryptoService = cryptoService;
+        this.debuggerService = debuggerService;
+    }
+
+    /**
+     * @deprecated Use the constructor with DebuggerService instead.
+     */
+    @Deprecated
+    public RestTestService(DataSource dataSource, JdbcTemplate jdbcTemplate, RestClient.Builder builder, GraalJsService graalJsService, AppProperties appProperties, CryptoService cryptoService) {
+        this(dataSource, jdbcTemplate, builder, graalJsService, appProperties, cryptoService, null);
     }
 
     public String getTestSource(String testName) {
@@ -80,11 +90,19 @@ public class RestTestService {
     }
 
     public String runTestWithGlobals(String testName, Map<String, Object> globals) {
+        return runTestWithGlobals(testName, globals, false);
+    }
+
+    public String runTestWithGlobals(String testName, Map<String, Object> globals, boolean debug) {
         var content = getTestSource(testName);
-        return runTestWithContent(testName, content, globals);
+        return runTestWithContent(testName, content, globals, debug);
     }
 
     public String runSingleRequest(SingleRequest request) {
+        return runSingleRequest(request, false);
+    }
+
+    public String runSingleRequest(SingleRequest request, boolean debug) {
         String content = request.getContent();
         int lineIndex = request.getLineIndex();
         String[] lines = content.split("\\r?\\n");
@@ -92,7 +110,7 @@ public class RestTestService {
         // Find the start of the block containing lineIndex
         int blockStart = 0;
         for (int i = lineIndex; i >= 0; i--) {
-            if (lines[i].trim().startsWith("###")) {
+            if (i < lines.length && lines[i].trim().startsWith("###")) {
                 blockStart = i;
                 break;
             }
@@ -112,7 +130,7 @@ public class RestTestService {
             blockContent.append(lines[i]).append("\n");
         }
 
-        return runTestWithContent(request.getName(), blockContent.toString(), request.getGlobals());
+        return runTestWithContent(request.getName(), blockContent.toString(), request.getGlobals(), debug, blockStart);
     }
 
     public String fetchExternalUrl(String url) {
@@ -132,10 +150,26 @@ public class RestTestService {
     }
 
     public String runTestWithContent(String testName, String content, Map<String, Object> globals) {
-        try (org.graalvm.polyglot.Context context = graalJsService.createContext()) {
+        return runTestWithContent(testName, content, globals, false);
+    }
+
+    public String runTestWithContent(String testName, String content, Map<String, Object> globals, boolean debug) {
+        return runTestWithContent(testName, content, globals, debug, 0);
+    }
+
+    public String runTestWithContent(String testName, String content, Map<String, Object> globals, boolean debug, int baseOffset) {
+        if (debug && debuggerService != null) {
+            debuggerService.startDebugging();
+        }
+        try {
+            org.graalvm.polyglot.Context.Builder builder = graalJsService.newBuilder();
+            if (debug && debuggerService != null) {
+                debuggerService.attachToEngine(graalJsService.getEngine());
+            }
+            try (org.graalvm.polyglot.Context context = builder.build()) {
             // ... existing code ...
             Map<String, String> inplaceVariables = parseInplaceVariables(content);
-            List<HttpTest> tests = parseHttpFile(content);
+            List<HttpTest> tests = parseHttpFile(content, baseOffset);
             StringBuilder report = new StringBuilder();
             if (appProperties != null && appProperties.getEnvironment() != null) {
                 report.append("Environment: ").append(appProperties.getEnvironment().getName()).append("\n\n");
@@ -222,9 +256,14 @@ public class RestTestService {
             }
 
             return report.toString();
+            }
         } catch (Exception e) {
             log.error("Error running test {}: {}", testName, e.getMessage(), e);
             throw new RuntimeException(e);
+        } finally {
+            if (debug && debuggerService != null) {
+                debuggerService.stopDebugging();
+            }
         }
     }
 
@@ -241,13 +280,39 @@ public class RestTestService {
     }
 
     private List<HttpTest> parseHttpFile(String content) {
+        return parseHttpFile(content, 0);
+    }
+
+    private List<HttpTest> parseHttpFile(String content, int baseOffset) {
         List<HttpTest> tests = new ArrayList<>();
-        // Split by ### at the beginning of a line to avoid splitting on internal ###
-        String[] blocks = content.split("(?m)^###");
-        for (String block : blocks) {
-            if (block.trim().isEmpty()) continue;
-            tests.add(parseBlock("###" + block));
+        String[] lines = content.split("\\r?\\n");
+        
+        List<Integer> blockStartLines = new ArrayList<>();
+        List<String> blockContents = new ArrayList<>();
+        
+        StringBuilder currentBlock = new StringBuilder();
+        int currentStartLine = 1 + baseOffset;
+        
+        for (int i = 0; i < lines.length; i++) {
+            if (lines[i].startsWith("###")) {
+                if (currentBlock.length() > 0) {
+                    blockContents.add(currentBlock.toString());
+                    blockStartLines.add(currentStartLine);
+                }
+                currentBlock = new StringBuilder();
+                currentStartLine = i + 1 + baseOffset;
+            }
+            currentBlock.append(lines[i]).append("\n");
         }
+        if (currentBlock.length() > 0) {
+            blockContents.add(currentBlock.toString());
+            blockStartLines.add(currentStartLine);
+        }
+        
+        for (int i = 0; i < blockContents.size(); i++) {
+            tests.add(parseBlock(blockContents.get(i), blockStartLines.get(i)));
+        }
+        
         return tests;
     }
 
@@ -289,7 +354,7 @@ public class RestTestService {
         return false;
     }
 
-    private HttpTest parseBlock(String block) {
+    private HttpTest parseBlock(String block, int startLine) {
         HttpTest test = new HttpTest();
         String[] lines = block.split("\\r?\\n");
         
@@ -359,6 +424,7 @@ public class RestTestService {
 
         int startParsingFrom = firstNonEmptyLine;
         StringBuilder currentScript = new StringBuilder();
+        int currentScriptLineOffset = 0;
         boolean requestLineFound = false;
 
         for (int i = startParsingFrom; i < lines.length; i++) {
@@ -370,36 +436,67 @@ public class RestTestService {
 
             if (trimmedLine.startsWith("< {%")) {
                 if (!currentScript.toString().trim().isEmpty()) {
-                    if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.PreAction("JS", currentScript.toString().trim()));
-                    if (mode.equals("SQL")) test.getPreActions().add(new HttpTest.PreAction("SQL", currentScript.toString().trim()));
-                    if (mode.equals("POST")) postScript.append(currentScript);
+                    if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.ScriptAction("JS", currentScript.toString(), currentScriptLineOffset));
+                    if (mode.equals("SQL")) {
+                        if (requestLineFound) test.getPostActions().add(new HttpTest.ScriptAction("SQL", currentScript.toString(), currentScriptLineOffset));
+                        else test.getPreActions().add(new HttpTest.ScriptAction("SQL", currentScript.toString(), currentScriptLineOffset));
+                    }
+                    if (mode.equals("POST")) {
+                        test.getPostActions().add(new HttpTest.ScriptAction("JS", currentScript.toString(), currentScriptLineOffset));
+                        postScript.append(currentScript);
+                        test.setPostScriptLineOffset(currentScriptLineOffset);
+                    }
                 }
                 currentScript = new StringBuilder();
+                currentScriptLineOffset = startLine + i;
                 mode = "PRE";
                 continue;
             } else if (trimmedLine.startsWith("> {%SQL") || trimmedLine.startsWith("# < SQL")) {
                 if (!currentScript.toString().trim().isEmpty()) {
-                    if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.PreAction("JS", currentScript.toString().trim()));
-                    if (mode.equals("SQL")) test.getPreActions().add(new HttpTest.PreAction("SQL", currentScript.toString().trim()));
-                    if (mode.equals("POST")) postScript.append(currentScript);
+                    if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.ScriptAction("JS", currentScript.toString(), currentScriptLineOffset));
+                    if (mode.equals("SQL")) {
+                        if (requestLineFound) test.getPostActions().add(new HttpTest.ScriptAction("SQL", currentScript.toString(), currentScriptLineOffset));
+                        else test.getPreActions().add(new HttpTest.ScriptAction("SQL", currentScript.toString(), currentScriptLineOffset));
+                    }
+                    if (mode.equals("POST")) {
+                        test.getPostActions().add(new HttpTest.ScriptAction("JS", currentScript.toString(), currentScriptLineOffset));
+                        postScript.append(currentScript);
+                        test.setPostScriptLineOffset(currentScriptLineOffset);
+                    }
                 }
                 currentScript = new StringBuilder();
+                currentScriptLineOffset = startLine + i;
                 mode = "SQL";
                 continue;
             } else if (trimmedLine.startsWith("> {%")) {
                 if (!currentScript.toString().trim().isEmpty()) {
-                    if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.PreAction("JS", currentScript.toString().trim()));
-                    if (mode.equals("SQL")) test.getPreActions().add(new HttpTest.PreAction("SQL", currentScript.toString().trim()));
-                    if (mode.equals("POST")) postScript.append(currentScript);
+                    if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.ScriptAction("JS", currentScript.toString(), currentScriptLineOffset));
+                    if (mode.equals("SQL")) {
+                        if (requestLineFound) test.getPostActions().add(new HttpTest.ScriptAction("SQL", currentScript.toString(), currentScriptLineOffset));
+                        else test.getPreActions().add(new HttpTest.ScriptAction("SQL", currentScript.toString(), currentScriptLineOffset));
+                    }
+                    if (mode.equals("POST")) {
+                        test.getPostActions().add(new HttpTest.ScriptAction("JS", currentScript.toString(), currentScriptLineOffset));
+                        postScript.append(currentScript);
+                        test.setPostScriptLineOffset(currentScriptLineOffset);
+                    }
                 }
                 currentScript = new StringBuilder();
+                currentScriptLineOffset = startLine + i;
                 mode = "POST";
                 continue;
             } else if (trimmedLine.startsWith("%}") || trimmedLine.equals("# SQL")) {
                 if (!currentScript.toString().trim().isEmpty()) {
-                    if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.PreAction("JS", currentScript.toString().trim()));
-                    if (mode.equals("SQL")) test.getPreActions().add(new HttpTest.PreAction("SQL", currentScript.toString().trim()));
-                    if (mode.equals("POST")) postScript.append(currentScript);
+                    if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.ScriptAction("JS", currentScript.toString(), currentScriptLineOffset));
+                    if (mode.equals("SQL")) {
+                        if (requestLineFound) test.getPostActions().add(new HttpTest.ScriptAction("SQL", currentScript.toString(), currentScriptLineOffset));
+                        else test.getPreActions().add(new HttpTest.ScriptAction("SQL", currentScript.toString(), currentScriptLineOffset));
+                    }
+                    if (mode.equals("POST")) {
+                        test.getPostActions().add(new HttpTest.ScriptAction("JS", currentScript.toString(), currentScriptLineOffset));
+                        postScript.append(currentScript);
+                        test.setPostScriptLineOffset(currentScriptLineOffset);
+                    }
                 }
                 currentScript = new StringBuilder();
                 mode = "NONE";
@@ -456,17 +553,24 @@ public class RestTestService {
 
         // Handle any remaining script in currentScript if loop finishes without %}
         if (!currentScript.toString().trim().isEmpty()) {
-            if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.PreAction("JS", currentScript.toString().trim()));
-            if (mode.equals("SQL")) test.getPreActions().add(new HttpTest.PreAction("SQL", currentScript.toString().trim()));
-            if (mode.equals("POST")) postScript.append(currentScript);
+            if (mode.equals("PRE")) test.getPreActions().add(new HttpTest.ScriptAction("JS", currentScript.toString(), currentScriptLineOffset));
+            if (mode.equals("SQL")) {
+                if (requestLineFound) test.getPostActions().add(new HttpTest.ScriptAction("SQL", currentScript.toString(), currentScriptLineOffset));
+                else test.getPreActions().add(new HttpTest.ScriptAction("SQL", currentScript.toString(), currentScriptLineOffset));
+            }
+            if (mode.equals("POST")) {
+                test.getPostActions().add(new HttpTest.ScriptAction("JS", currentScript.toString(), currentScriptLineOffset));
+                postScript.append(currentScript);
+                test.setPostScriptLineOffset(currentScriptLineOffset);
+            }
         }
 
-        test.setPreScript(preScript.toString().trim());
-        test.setPostScript(postScript.toString().trim());
+        test.setPreScript(preScript.toString());
+        test.setPostScript(postScript.toString());
         test.setMethod(method);
         test.setUrl(url);
         test.setHeaders(headers);
-        test.setBody(body.toString().trim());
+        test.setBody(body.toString());
 
         if (mockStatus != null) {
             HttpTest.MockResponse mock = new HttpTest.MockResponse();
@@ -482,14 +586,19 @@ public class RestTestService {
     private void executeTest(HttpTest test, RequestJS requestJS, HttpClientJS httpClientJS, StringBuilder report, org.graalvm.polyglot.Context context) {
         try {
             // 1. Pre-actions (JS and SQL in order)
-            for (HttpTest.PreAction action : test.getPreActions()) {
+            for (HttpTest.ScriptAction action : test.getPreActions()) {
                 if ("SQL".equals(action.getType())) {
                     executeSql(action.getContent(), requestJS, httpClientJS, report);
                 } else if ("JS".equals(action.getType())) {
                     setupGraalJsContext(requestJS, httpClientJS, null, context);
                     try {
-                        String wrappedScript = "(function() { " + action.getContent() + " \n})();";
-                        context.eval("js", wrappedScript);
+                        String sourceName = test.getName() + "-pre-" + action.getLineOffset();
+                        String wrappedScript = "(function() {\n" + action.getContent() + "\n})();";
+                        org.graalvm.polyglot.Source source = org.graalvm.polyglot.Source.newBuilder("js", wrappedScript, sourceName).build();
+                        if (debuggerService != null && debuggerService.isDebugging()) {
+                            debuggerService.registerSourceOffset(sourceName, source.getURI(), action.getLineOffset());
+                        }
+                        context.eval(source);
                     } catch (Exception e) {
                         report.append("❌ **Error in pre-script:** ").append(e.getMessage()).append("\n");
                     }
@@ -814,24 +923,33 @@ public class RestTestService {
             report.append("**Response Status:** ").append(responseJS.getStatus()).append("\n\n");
 
             // 5. Post-script
-            if (test.getPostScript() != null && !test.getPostScript().isEmpty()) {
-                setupGraalJsContext(requestJS, httpClientJS, responseJS, context);
-                try {
-                    log.info("Executing post-script for test: {}", test.getUrl());
-                    String wrappedScript = "(function() { " + test.getPostScript() + " \n})();";
-                    context.eval("js", wrappedScript);
-                } catch (Exception e) {
-                    log.error("Error in post-script for test {}: {}", test.getUrl(), e.getMessage());
-                    report.append("❌ **Error in post-script:** ").append(e.getMessage()).append("\n");
-                }
-                
-                // Propagate global variables back to requestJS after post-script
-                httpClientJS.getGlobal().all().forEach((k, v) -> {
-                    if (v != null) {
-                        requestJS.getVariables().set(k, v);
+            for (HttpTest.ScriptAction action : test.getPostActions()) {
+                if ("JS".equals(action.getType())) {
+                    setupGraalJsContext(requestJS, httpClientJS, responseJS, context);
+                    try {
+                        log.info("Executing post-script for test: {} at offset {}", test.getUrl(), action.getLineOffset());
+                        String sourceName = test.getName() + "-post-" + action.getLineOffset();
+                        String wrappedScript = "(function() {\n" + action.getContent() + "\n})();";
+                        org.graalvm.polyglot.Source source = org.graalvm.polyglot.Source.newBuilder("js", wrappedScript, sourceName).build();
+                        if (debuggerService != null && debuggerService.isDebugging()) {
+                            debuggerService.registerSourceOffset(sourceName, source.getURI(), action.getLineOffset());
+                        }
+                        context.eval(source);
+                    } catch (Exception e) {
+                        log.error("Error in post-script for test {}: {}", test.getUrl(), e.getMessage());
+                        report.append("❌ **Error in post-script:** ").append(e.getMessage()).append("\n");
                     }
-                });
+                } else if ("SQL".equals(action.getType())) {
+                    executeSql(action.getContent(), requestJS, httpClientJS, report);
+                }
             }
+            
+            // Propagate global variables back to requestJS after post-scripts
+            httpClientJS.getGlobal().all().forEach((k, v) -> {
+                if (v != null) {
+                    requestJS.getVariables().set(k, v);
+                }
+            });
             appendResults(httpClientJS, report);
         } catch (Exception e) {
             report.append("❌ **Error during execution:** ").append(e.getMessage()).append("\n");
@@ -1178,19 +1296,35 @@ public class RestTestService {
     }
 
     private Object resolveVariableValueForIteration(String varPath, Map<String, Object> variables, String iterationVarPath, int iterationIndex) {
-        if (iterationVarPath != null && varPath.startsWith(iterationVarPath.substring(0, iterationVarPath.lastIndexOf("..") + 2))) {
-            // If this variable starts with the same path as the iterated variable,
-            // we should try to resolve it for the current iteration.
-            try {
-                Object fullList = JsonPath.read(variables, varPath);
-                if (fullList instanceof List) {
-                    List<?> list = (List<?>) fullList;
+        if (iterationVarPath != null) {
+            // Case 1: The variable is the iterated collection itself (e.g., {{cars}})
+            if (varPath.equals(iterationVarPath)) {
+                Object val = resolveVariableValue(varPath, variables);
+                if (val instanceof List) {
+                    List<?> list = (List<?>) val;
                     if (iterationIndex < list.size()) {
                         return list.get(iterationIndex);
                     }
+                } else if (val != null && val.getClass().isArray()) {
+                    Object[] array = (Object[]) val;
+                    if (iterationIndex < array.length) {
+                        return array[iterationIndex];
+                    }
                 }
-            } catch (Exception e) {
-                // fall back to normal resolution
+            }
+            // Case 2: JsonPath referring to elements in the collection (e.g., {{$.cars..make}})
+            else if (iterationVarPath.contains("..") && varPath.startsWith(iterationVarPath.substring(0, iterationVarPath.lastIndexOf("..") + 2))) {
+                try {
+                    Object fullList = JsonPath.read(variables, varPath);
+                    if (fullList instanceof List) {
+                        List<?> list = (List<?>) fullList;
+                        if (iterationIndex < list.size()) {
+                            return list.get(iterationIndex);
+                        }
+                    }
+                } catch (Exception e) {
+                    // fall back to normal resolution
+                }
             }
         }
         return resolveVariableValue(varPath, variables);

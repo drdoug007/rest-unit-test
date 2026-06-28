@@ -46,14 +46,21 @@ public class RestTestApi {
     }
 
     @PostMapping(path = "runtest/{testName}", produces = "text/markdown; charset=UTF-8")
-    public String runTestPost(@PathVariable("testName") String testName, @RequestBody(required = false) Map<String, Object> globals) {
-        if (globals == null) return restTestService.runTest(testName);
-        return restTestService.runTestWithGlobals(testName, globals);
+    public String runTestPost(@PathVariable("testName") String testName, 
+                              @RequestBody(required = false) Map<String, Object> globals,
+                              @RequestParam(value = "debug", defaultValue = "false") boolean debug) {
+        if (globals == null) return restTestService.runTestWithGlobals(testName, null, debug);
+        return restTestService.runTestWithGlobals(testName, globals, debug);
     }
 
     @PostMapping(path = "runtest/single", produces = "text/markdown; charset=UTF-8")
-    public String runSingleRequest(@RequestBody SingleRequest request) {
-        return restTestService.runSingleRequest(request);
+    public String runSingleRequest(@RequestBody SingleRequest request,
+                                   @RequestParam(value = "debug", defaultValue = "false") boolean debug) {
+        return restTestService.runSingleRequest(request, debug);
+    }
+
+    public String runSingleRequest(SingleRequest request) {
+        return runSingleRequest(request, false);
     }
 
     @GetMapping(path = "test/{testName}", produces = "text/plain; charset=UTF-8")
@@ -62,8 +69,13 @@ public class RestTestApi {
     }
 
     @PostMapping(path = "runtest/custom", produces = "text/markdown; charset=UTF-8")
-    public String runTestCustom(@RequestBody CustomTestRequest request) {
-        return restTestService.runTestWithContent(request.getName(), request.getContent(), request.getGlobals());
+    public String runTestCustom(@RequestBody CustomTestRequest request,
+                                @RequestParam(value = "debug", defaultValue = "false") boolean debug) {
+        return restTestService.runTestWithContent(request.getName(), request.getContent(), request.getGlobals(), debug);
+    }
+
+    public String runTestCustom(CustomTestRequest request) {
+        return runTestCustom(request, false);
     }
 
     @GetMapping(path = "/fetch-external", produces = "text/plain; charset=UTF-8")

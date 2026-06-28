@@ -1,4 +1,4 @@
-import { state, sourceEditor, sourceContent, runCustomBtn, saveCustomBtn, globalsBtn, runViewBtn, cloneBtn, sourceBtn, reportContent, saveCustomTest, saveCustomGlobals, getCustomTests, editor as cmEditor } from './core.js';
+import { state, sourceEditor, runCustomBtn, saveCustomBtn, globalsBtn, runViewBtn, cloneBtn, sourceBtn, reportContent, saveCustomTest, saveCustomGlobals, getCustomTests, editor as cmEditor } from './core.js';
 import { fetchTests } from './test-runner.js';
 import { initEditor } from './editor.js';
 import * as jsyaml from 'js-yaml';
@@ -71,7 +71,6 @@ function handleImportedContent(content, sourceName) {
         state.lastSource = httpContent;
         
         setEditorContent(state.lastSource);
-        sourceContent.style.display = 'none';
         sourceEditor.style.display = 'block';
         runCustomBtn.style.display = 'inline-block';
         saveCustomBtn.style.display = 'inline-block';
