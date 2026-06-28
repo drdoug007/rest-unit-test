@@ -86,9 +86,9 @@ public class DomMethodsReproductionTest {
         String result = restTestService.runTestWithContent("DOM Methods Test", content);
         
         System.out.println("[DEBUG_LOG] Result:\n" + result);
-        // assertTrue(result.contains("✅ getElementsByTagName"), "getElementsByTagName failed: " + result);
-        // assertTrue(result.contains("✅ getElementById"));
-        // assertTrue(result.contains("✅ getElementsByClassName"));
+        assertTrue(result.contains("✅ getElementsByTagName"), "getElementsByTagName failed: " + result);
+        assertTrue(result.contains("✅ getElementById"), "getElementById failed: " + result);
+        assertTrue(result.contains("✅ getElementsByClassName"), "getElementsByClassName failed: " + result);
     }
 
     @Test
@@ -126,10 +126,10 @@ public class DomMethodsReproductionTest {
         String result = restTestService.runTestWithContent("DOMParser Test", content);
         
         System.out.println(result);
-        // assertTrue(result.contains("✅ DOMParser getElementById"));
-        // assertTrue(result.contains("✅ DOMParser getElementsByClassName"));
-        // assertTrue(result.contains("✅ DOMParser getElementsByTagName"));
-        // assertTrue(result.contains("✅ DOMParser getElementsByName"));
-        // assertTrue(result.contains("✅ DOMParser createElement"));
+        assertTrue(result.contains("✅ DOMParser getElementById"), "DOMParser getElementById failed: " + result);
+        assertTrue(result.contains("✅ DOMParser getElementsByClassName"), "DOMParser getElementsByClassName failed: " + result);
+        assertTrue(result.contains("✅ DOMParser getElementsByTagName"), "DOMParser getElementsByTagName failed: " + result);
+        assertTrue(result.contains("✅ DOMParser getElementsByName"), "DOMParser getElementsByName failed: " + result);
+        assertTrue(result.contains("✅ DOMParser createElement"), "DOMParser createElement failed: " + result);
     }
 }

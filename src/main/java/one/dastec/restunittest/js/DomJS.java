@@ -13,6 +13,7 @@ import javax.xml.xpath.XPathFactory;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -199,14 +200,18 @@ public class DomJS {
             if (node instanceof Element) {
                 return ((Element) node).getElementsByClass(cls).stream().map(NodeWrapper::new).collect(Collectors.toList());
             }
-            if (node instanceof org.w3c.dom.Element) {
-                // Approximate for W3C DOM
-                org.w3c.dom.NodeList nl = ((org.w3c.dom.Element) node).getElementsByTagName("*");
+            if (node instanceof org.w3c.dom.Element || node instanceof org.w3c.dom.Document) {
+                org.w3c.dom.NodeList nl;
+                if (node instanceof org.w3c.dom.Element) nl = ((org.w3c.dom.Element) node).getElementsByTagName("*");
+                else nl = ((org.w3c.dom.Document) node).getElementsByTagName("*");
                 List<NodeWrapper> list = new ArrayList<>();
                 for (int i = 0; i < nl.getLength(); i++) {
                     org.w3c.dom.Node n = nl.item(i);
-                    if (n instanceof org.w3c.dom.Element && ((org.w3c.dom.Element) n).getAttribute("class").contains(cls)) {
-                        list.add(new NodeWrapper(n));
+                    if (n instanceof org.w3c.dom.Element) {
+                        String classAttr = ((org.w3c.dom.Element) n).getAttribute("class");
+                        if (classAttr != null && Arrays.asList(classAttr.split("\\s+")).contains(cls)) {
+                            list.add(new NodeWrapper(n));
+                        }
                     }
                 }
                 return list;
@@ -218,13 +223,37 @@ public class DomJS {
             if (node instanceof Element) {
                 return ((Element) node).getElementsByAttributeValue(attr, value).stream().map(NodeWrapper::new).collect(Collectors.toList());
             }
+            if (node instanceof org.w3c.dom.Element || node instanceof org.w3c.dom.Document) {
+                org.w3c.dom.NodeList nl;
+                if (node instanceof org.w3c.dom.Element) nl = ((org.w3c.dom.Element) node).getElementsByTagName("*");
+                else nl = ((org.w3c.dom.Document) node).getElementsByTagName("*");
+
+                List<NodeWrapper> list = new ArrayList<>();
+                for (int i = 0; i < nl.getLength(); i++) {
+                    org.w3c.dom.Node n = nl.item(i);
+                    if (n instanceof org.w3c.dom.Element && value.equals(((org.w3c.dom.Element) n).getAttribute(attr))) {
+                        list.add(new NodeWrapper(n));
+                    }
+                }
+                return list;
+            }
             return List.of();
         }
 
         public NodeWrapper getElementById(String id) {
             if (node instanceof Document) return wrap(((Document) node).getElementById(id));
             if (node instanceof Element) return wrap(((Element) node).getElementById(id));
-            if (node instanceof org.w3c.dom.Document) return wrap(((org.w3c.dom.Document) node).getElementById(id));
+            if (node instanceof org.w3c.dom.Document) {
+                org.w3c.dom.Element el = ((org.w3c.dom.Document) node).getElementById(id);
+                if (el != null) return wrap(el);
+                // Fallback: search for id attribute
+                List<NodeWrapper> found = getElementsByAttribute("id", id);
+                return found.isEmpty() ? null : found.get(0);
+            }
+            if (node instanceof org.w3c.dom.Element) {
+                List<NodeWrapper> found = getElementsByAttribute("id", id);
+                return found.isEmpty() ? null : found.get(0);
+            }
             return null;
         }
 
