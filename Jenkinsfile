@@ -19,6 +19,13 @@ pipeline {
                 sh './mvnw test -Dtest=CIHttpTests'
             }
         }
+
+        stage('E2E Browser Tests') {
+            steps {
+                // Run Playwright E2E tests
+                sh './mvnw test -Dtest=WebUI*Test'
+            }
+        }
     }
 
     post {

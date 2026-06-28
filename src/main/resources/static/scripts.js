@@ -1779,13 +1779,19 @@ function convertPostmanToHttp(data) {
                         const lines = Array.isArray(ev.script.exec) ? ev.script.exec : [ev.script.exec];
                         lines.forEach(line => {
                             // Basic mapping of postman specific snippets to our format
+                            // We now provide a 'pm' shim in the backend, so we only map things that are easy 
+                            // or common to avoid relying solely on the shim.
                             let mappedLine = line
-                                .replace(/pm\.response\.to\.have\.status\((\d+)\)/g, 'client.assert(response.status === $1, "Status should be $1")')
-                                .replace(/pm\.test\(/g, 'client.test(')
-                                .replace(/pm\.expect\(/g, 'client.assert(')
+                                .replace(/pm\.expect\(([^)]+)\)\.to\.eql\(([^)]+)\)/g, 'client.assert($1 == $2, "Expected " + $2 + " but got " + $1)')
+                                .replace(/pm\.expect\(([^)]+)\)\.to\.have\.status\((\d+)\)/g, 'client.assert(response.status === $2, "Expected status $2 but got " + response.status)')
                                 .replace(/pm\.response\.json\(\)/g, 'response.body')
                                 .replace(/pm\.environment\.set\(/g, 'client.global.set(')
-                                .replace(/pm\.globals\.set\(/g, 'client.global.set(');
+                                .replace(/pm\.globals\.set\(/g, 'client.global.set(')
+                                .replace(/pm\.expect\(([^)]+)\)\.to\.be\.true/g, 'client.assert($1 === true, "Expected true but got " + $1)')
+                                .replace(/pm\.expect\(([^)]+)\)\.to\.be\.false/g, 'client.assert($1 === false, "Expected false but got " + $1)')
+                                .replace(/pm\.test\(/g, 'client.test(')
+                                .replace(/pm\.response\.to\.have\.status\((\d+)\)/g, 'client.assert(response.status === $1, "Expected status $1 but got " + response.status)')
+                                .replace(/pm\.response\.to\.be\.success/g, 'client.assert(response.status >= 200 && response.status < 300, "Expected success status but got " + response.status)');
                             http += `    ${mappedLine}\n`;
                         });
                         http += '%}\n\n';

@@ -199,3 +199,7 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Refactored the Web UI to provide a unified "Import" experience for all supported API collection formats.
 - Implemented automatic script mapping for Postman tests and pre-request scripts during import.
 - Updated documentation in `HOWTO.md` to include instructions for importing collections.
+- Integrated **Playwright** for headless browser testing (E2E), enabling automated validation of the Web UI.
+- Created a suite of Playwright tests covering login, dashboard navigation, and HTTP test execution.
+- Added a dedicated "E2E Browser Tests" stage to the Jenkins CI/CD pipeline.
+- Documented E2E testing procedures and best practices in `HOWTO.md`.

@@ -955,6 +955,34 @@ public class RestTestService {
                 "}," +
                 "sqlQuery: function(sql) { return __sqlQuery(sql); }" +
                 "};" +
+                "var pm = { " +
+                "  test: function(name, callback) { client.test(name, callback); }," +
+                "  expect: function(actual) { " +
+                "    var expectObj = { " +
+                "      to: { " +
+                "        be: { " +
+                "          get true() { client.assert(actual === true, 'Expected true but got ' + actual); }," +
+                "          get false() { client.assert(actual === false, 'Expected false but got ' + actual); }" +
+                "        }, " +
+                "        eql: function(expected) { client.assert(actual == expected, 'Expected ' + expected + ' but got ' + actual); } " +
+                "      } " +
+                "    }; " +
+                "    expectObj.to.not = { " +
+                "        eql: function(expected) { client.assert(actual != expected, 'Expected ' + actual + ' not to equal ' + expected); } " +
+                "    }; " +
+                "    return expectObj; " +
+                "  }," +
+                "  response: { " +
+                "    json: function() { return response.body; }," +
+                "    to: { " +
+                "      have: { " +
+                "        status: function(s) { client.assert(response.status === s, 'Expected status ' + s + ' but got ' + response.status); } " +
+                "      } " +
+                "    } " +
+                "  }," +
+                "  environment: { set: function(k, v) { client.global.set(k, v); }, get: function(k) { return client.global.get(k); } }," +
+                "  globals: { set: function(k, v) { client.global.set(k, v); }, get: function(k) { return client.global.get(k); } }" +
+                "};" +
                 "(function() { " +
                 "  var originalParse = JSON.parse; " +
                 "  JSON.parse = function(text, reviver) { " +

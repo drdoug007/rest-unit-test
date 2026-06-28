@@ -34,10 +34,10 @@ This document provides a comprehensive guide and examples for using JavaScript i
     - [Sensitive Variable Encryption](#sensitive-variable-encryption)
     - [Dynamic Database Switching](#dynamic-database-switching)
 10. [Integrated Mock Server](#integrated-mock-server)
+11. [Importing Collections (OpenAPI, Postman, Insomnia)](#importing-collections-openapi-postman-insomnia)
+12. [End-to-End (E2E) Browser Testing](#end-to-end-e2e-browser-testing)
 
 ---
-
-11. [Importing Collections (OpenAPI, Postman, Insomnia)](#importing-collections-openapi-postman-insomnia)
 
 ---
 
@@ -442,3 +442,48 @@ The importer makes a "best-effort" attempt to map Postman scripts to **rest-unit
 - `pm.response.json()` → `response.body`
 - `pm.environment.set(...)` → `client.global.set(...)`
 - Status code checks are also automatically converted.
+
+---
+
+## End-to-End (E2E) Browser Testing
+
+The project uses **Playwright** for headless browser testing to ensure the Web UI remains functional and bug-free.
+
+### Prerequisites
+- **JDK 25** (already required for the main application).
+- **Playwright Maven Dependency** (included in `pom.xml`).
+
+### Running E2E Tests
+To execute all E2E tests, use the following Maven command:
+```bash
+./mvnw test -Dtest=WebUI*Test
+```
+
+### Writing New E2E Tests
+New E2E tests should extend the `BaseE2ETest` class, which handles the Playwright lifecycle (launching the browser, creating contexts, etc.) and provides a helper `login()` method.
+
+**Example Test:**
+```java
+public class WebUILoginTest extends BaseE2ETest {
+    @Test
+    void testLoginAndDashboard() {
+        login("user", "password");
+        assertThat(page).hasTitle("REST Unit Test Runner");
+        assertThat(page.locator(".sidebar")).isVisible();
+    }
+}
+```
+
+### Configuration
+E2E tests use `@SpringBootTest` with a random port. The `BaseE2ETest` automatically configures a default test user with credentials `user`/`password` for security-enabled test runs.
+
+#### Headless vs. Headed Mode
+By default, tests run in **headless** mode (no visible browser window) for speed and CI/CD compatibility.
+
+To run tests in **headed** mode (visible browser window) for local development or debugging:
+```bash
+./mvnw test -Dtest=WebUI*Test -Dheadless=false
+```
+
+#### Known Limitations
+- **CM6 Editor Interaction**: Interacting with the CodeMirror 6 editor (e.g., in "New Test" or "Edit" modes) is brittle in headless mode. Tests that require editor interaction are automatically skipped when `headless=true` is detected. Run these tests in **headed mode** (`-Dheadless=false`) for reliable results.
