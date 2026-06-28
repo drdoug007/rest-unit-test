@@ -203,3 +203,12 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Created a suite of Playwright tests covering login, dashboard navigation, and HTTP test execution.
 - Added a dedicated "E2E Browser Tests" stage to the Jenkins CI/CD pipeline.
 - Documented E2E testing procedures and best practices in `HOWTO.md`.
+- Cleaned up redundant `node_modules` and `node` directories from the project root, ensuring that only the `src/main/frontend` managed directories are used for the build.
+- Resolved a `SyntaxError: Unexpected token '}'` in the web UI and fixed `HeadedDemoTest` failures by synchronizing production script references and rebuilding the frontend.
+- Fixed a `ReferenceError: sourceContent is not defined` that caused crashes when cloning tests by ensuring correct module imports.
+- Implemented functional 'Cancel' and 'Globals' buttons for custom tests, ensuring correct state management and modal interactions.
+- Added a comprehensive E2E test suite `SourcePanelButtonsTest.java` to validate source panel button visibility and behavior.
+- Renamed the 'Edit' button to 'Clone' for server-side tests and added 'Server' tags for better visual distinction and consistency in the sidebar.
+- Refactored the sidebar layout using flexbox to resolve large gaps between test names and tags.
+- Enhanced `RestTestApi` with a `POST /api/runtest/single` endpoint and `SingleRequest` model to support running individual requests from the editor.
+- Updated `BaseE2ETest` with a fixed desktop viewport to ensure consistent UI rendering and visibility during E2E tests.

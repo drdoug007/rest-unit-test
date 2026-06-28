@@ -31,37 +31,47 @@ public class WebUITestExecutionTest extends BaseE2ETest {
 
     @Test
     void testCreateAndRunCustomTest() {
-        boolean headless = Boolean.parseBoolean(System.getProperty("headless", "true"));
-        Assumptions.assumeFalse(headless, "Skipping CM6 editor test in headless mode");
-        
         login("user", "password");
+        
+        // Wait for tests to load (indicates JS is initialized)
+        page.waitForSelector("#test-list li:not(.loading)");
         
         // Click "+ New" button in sidebar
         page.click("#add-test-btn");
         
-        String customTest = "### Playwright Custom Test\nGET http://localhost:" + port + "/api/cardealer";
-        System.out.println("[DEBUG_LOG] Setting custom test content targeting port: " + port);
+        String customTest = "### Playwright Custom Test\n" +
+                "GET http://localhost:" + port + "/api/cardealer\n" +
+                "Authorization: Basic dXNlcjpwYXNzd29yZA==\n\n" +
+                "HTTP/1.1 200 OK\n" +
+                "Content-Type: application/json\n\n" +
+                "[\n" +
+                "  {\"id\": 1, \"name\": \"Mock Dealer\"}\n" +
+                "]\n\n" +
+                "> {%\n" +
+                "    client.test(\"Request executed successfully\", function() {\n" +
+                "        client.assert(response.status === 200, \"Response status is not 200\");\n" +
+                "    });\n" +
+                "%}";
         
         // Wait for the editor container to be visible
+        page.waitForSelector("#run-custom-btn");
         page.waitForSelector("#source-editor");
 
         // Use a more resilient way to set content into the CM6 editor
-        page.evaluate("([text]) => {" +
-                "  if (window.editor) {" +
-                "    window.editor.dispatch({" +
-                "      changes: {from: 0, to: window.editor.state.doc.length, insert: text}" +
-                "    });" +
-                "  }" +
-                "  // Fallback for runner" +
-                "  window.currentSource = text;" +
-                "}", java.util.Collections.singletonList(customTest));
+        page.evaluate("text => {\n" +
+                "  if (window.editor) {\n" +
+                "    window.editor.dispatch({\n" +
+                "      changes: {from: 0, to: window.editor.state.doc.length, insert: text}\n" +
+                "    });\n" +
+                "  }\n" +
+                "  // Fallback for runner\n" +
+                "  window.currentSource = text;\n" +
+                "}", customTest);
         
         // Click Run button for custom test
         page.click("#run-custom-btn");
         
         // Wait for report
-        System.out.println("[DEBUG_LOG] Waiting for report content to update with port: " + port);
-        
         try {
             // Resilient wait for the specific local URL to appear in the report
             page.waitForCondition(() -> {
@@ -71,7 +81,6 @@ public class WebUITestExecutionTest extends BaseE2ETest {
             }, new Page.WaitForConditionOptions().setTimeout(15000));
         } catch (Exception e) {
             String reportText = page.locator("#report-content").innerText();
-            System.out.println("[DEBUG_LOG] FAILED to find expected content in report. Current text: " + reportText);
             throw e;
         }
         

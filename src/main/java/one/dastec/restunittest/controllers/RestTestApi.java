@@ -1,6 +1,7 @@
 package one.dastec.restunittest.controllers;
 
 import one.dastec.restunittest.models.CustomTestRequest;
+import one.dastec.restunittest.models.SingleRequest;
 import one.dastec.restunittest.services.CryptoService;
 import one.dastec.restunittest.services.RestTestService;
 import org.springframework.web.bind.annotation.*;
@@ -10,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
@@ -41,6 +43,17 @@ public class RestTestApi {
     @GetMapping(path = "runtest/{testName}", produces = "text/markdown; charset=UTF-8")
     public String runTest(@PathVariable("testName") String testName) {
         return restTestService.runTest(testName);
+    }
+
+    @PostMapping(path = "runtest/{testName}", produces = "text/markdown; charset=UTF-8")
+    public String runTestPost(@PathVariable("testName") String testName, @RequestBody(required = false) Map<String, Object> globals) {
+        if (globals == null) return restTestService.runTest(testName);
+        return restTestService.runTestWithGlobals(testName, globals);
+    }
+
+    @PostMapping(path = "runtest/single", produces = "text/markdown; charset=UTF-8")
+    public String runSingleRequest(@RequestBody SingleRequest request) {
+        return restTestService.runSingleRequest(request);
     }
 
     @GetMapping(path = "test/{testName}", produces = "text/plain; charset=UTF-8")

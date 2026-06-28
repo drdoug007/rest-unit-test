@@ -3,6 +3,7 @@ package one.dastec.restunittest.services;
 import one.dastec.restunittest.config.AppProperties;
 import one.dastec.restunittest.js.*;
 import one.dastec.restunittest.models.HttpTest;
+import one.dastec.restunittest.models.SingleRequest;
 import com.jayway.jsonpath.JsonPath;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,6 +77,42 @@ public class RestTestService {
     public String runTest(String testName) {
         var content = getTestSource(testName);
         return runTestWithContent(testName, content);
+    }
+
+    public String runTestWithGlobals(String testName, Map<String, Object> globals) {
+        var content = getTestSource(testName);
+        return runTestWithContent(testName, content, globals);
+    }
+
+    public String runSingleRequest(SingleRequest request) {
+        String content = request.getContent();
+        int lineIndex = request.getLineIndex();
+        String[] lines = content.split("\\r?\\n");
+
+        // Find the start of the block containing lineIndex
+        int blockStart = 0;
+        for (int i = lineIndex; i >= 0; i--) {
+            if (lines[i].trim().startsWith("###")) {
+                blockStart = i;
+                break;
+            }
+        }
+
+        // Find the end of the block
+        int blockEnd = lines.length;
+        for (int i = lineIndex + 1; i < lines.length; i++) {
+            if (lines[i].trim().startsWith("###")) {
+                blockEnd = i;
+                break;
+            }
+        }
+
+        StringBuilder blockContent = new StringBuilder();
+        for (int i = blockStart; i < blockEnd; i++) {
+            blockContent.append(lines[i]).append("\n");
+        }
+
+        return runTestWithContent(request.getName(), blockContent.toString(), request.getGlobals());
     }
 
     public String fetchExternalUrl(String url) {

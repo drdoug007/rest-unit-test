@@ -43,8 +43,23 @@ public abstract class BaseE2ETest {
 
     @BeforeEach
     void createContext() {
-        context = browser.newContext();
+        context = browser.newContext(new Browser.NewContextOptions().setViewportSize(1280, 800));
         page = context.newPage();
+        
+        // Add console message listener
+        page.onConsoleMessage(msg -> {
+            System.out.println("[BROWSER_CONSOLE] [" + msg.type() + "] " + msg.text());
+        });
+        
+        page.onResponse(response -> {
+            if (response.status() >= 400) {
+                System.out.println("[BROWSER_RESPONSE_ERROR] " + response.status() + " " + response.url());
+            }
+        });
+        
+        page.onRequestFailed(request -> {
+            System.out.println("[BROWSER_REQUEST_FAILED] " + request.url() + " " + request.failure());
+        });
     }
 
     @AfterEach

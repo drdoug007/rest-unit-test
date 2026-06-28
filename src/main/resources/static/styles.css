@@ -263,10 +263,17 @@ li.active {
     border-radius: 4px;
 }
 .test-name {
-    flex: 1;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
+}
+.test-item-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
 }
 .custom-tag {
     font-size: 10px;
@@ -274,7 +281,7 @@ li.active {
     color: #000;
     padding: 2px 4px;
     border-radius: 3px;
-    margin-right: 5px;
+    flex-shrink: 0;
 }
 .server-tag {
     font-size: 10px;
@@ -282,7 +289,7 @@ li.active {
     color: white;
     padding: 2px 4px;
     border-radius: 3px;
-    margin-right: 5px;
+    flex-shrink: 0;
 }
 .dropdown {
     position: relative;
