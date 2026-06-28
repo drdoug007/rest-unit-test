@@ -13,15 +13,53 @@ const saveCustomBtn = document.getElementById('save-custom-btn');
 const runCustomBtn = document.getElementById('run-custom-btn');
 const globalsBtn = document.getElementById('globals-btn');
 const addTestBtn = document.getElementById('add-test-btn');
-const importOpenApiBtn = document.getElementById('import-openapi-btn');
+const importBtnSidebar = document.getElementById('import-btn-sidebar');
 const importOptions = document.getElementById('import-options');
 const importFileBtn = document.getElementById('import-file-btn');
 const importUrlBtn = document.getElementById('import-url-btn');
 const importPasteBtn = document.getElementById('import-paste-btn');
-const openapiFileInput = document.getElementById('openapi-file-input');
+const importFileInput = document.getElementById('import-file-input');
 const sourceEditor = document.getElementById('source-editor');
 let cmEditor = null;
-const { EditorView, EditorState, basicSetup, http, javascript, oneDark, Compartment, keymap, indentWithTab } = CodeMirror6;
+const { EditorView, EditorState, basicSetup, http, javascript, oneDark, Compartment, keymap, indentWithTab, gutter, GutterMarker, RangeSet } = CodeMirror6;
+
+class RunMarker extends GutterMarker {
+    constructor(requestLine, lineIndex) {
+        super();
+        this.requestLine = requestLine;
+        this.lineIndex = lineIndex;
+    }
+    toDOM() {
+        const span = document.createElement("span");
+        span.className = "play-button";
+        span.textContent = "▶";
+        span.title = "Run this request";
+        span.onclick = (e) => {
+            e.stopPropagation();
+            runSingleRequest(this.requestLine, this.lineIndex);
+        };
+        return span;
+    }
+}
+
+const runGutter = gutter({
+    class: "cm-run-gutter",
+    renderEmptyElements: false,
+    markers(view) {
+        let markers = [];
+        const requestLineRegex = /^(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD|TRACE) /;
+        for (let {from, to} of view.visibleRanges) {
+            for (let pos = from; pos <= to;) {
+                let line = view.state.doc.lineAt(pos);
+                if (requestLineRegex.test(line.text.trim())) {
+                    markers.push(new RunMarker(line.text.trim(), line.number - 1).range(line.from));
+                }
+                pos = line.to + 1;
+            }
+        }
+        return RangeSet.of(markers);
+    }
+});
 const languageConf = new Compartment();
 const themeConf = new Compartment();
 
@@ -39,6 +77,7 @@ function initEditor(content = '') {
                 keymap.of([indentWithTab]),
                 languageConf.of(http()),
                 themeConf.of(isDarkMode ? oneDark : []),
+                runGutter,
             ]
         }),
         parent: sourceEditor
@@ -398,94 +437,140 @@ function highlightHttpSource(codeElement) {
     }
 
     try {
-        // First, highlight the entire block as HTTP
-        // We use textContent to get the raw source code
+        // Determine language from classes or default to http
+        let language = 'http';
+        for (const cls of codeElement.classList) {
+            if (cls.startsWith('language-')) {
+                language = cls.replace('language-', '');
+                break;
+            }
+        }
+
         const rawCode = codeElement.textContent;
-        const highlightedHttp = hljs.highlight(rawCode, { language: 'http' }).value;
         
-        // Now, find and highlight nested JavaScript blocks in the already highlighted HTTP HTML
-        // The nested blocks in the highlighted HTML might have escaped characters
-        // &gt; corresponds to > and &lt; corresponds to <
-        const regex = /(&gt;|&lt;)\s+{%([\s\S]*?)%}/g;
-        const finalHtml = highlightedHttp.replace(regex, (match, prefix, content) => {
-            // Decode entities to get raw JS for highlighting
-            const decodedContent = content.replace(/&amp;/g, '&')
-                                         .replace(/&lt;/g, '<')
-                                         .replace(/&gt;/g, '>')
-                                         .replace(/&quot;/g, '"')
-                                         .replace(/&#39;/g, "'");
-            const highlightedJs = hljs.highlight(decodedContent, { language: 'javascript' }).value;
-            return `<span class="hljs-meta">${prefix} {%</span>${highlightedJs}<span class="hljs-meta">%}</span>`;
-        });
-        
-        // Final adjustment for HTTP specific elements if not caught by hljs-http
-        let customHighlighted = finalHtml;
-
-        // Highlight ### as section
-        customHighlighted = customHighlighted.replace(/^### (.*)$/gm, '<span class="hljs-section">### $1</span>');
-        // Highlight // comments
-        customHighlighted = customHighlighted.replace(/^\/\/ (.*)$/gm, '<span class="hljs-comment">// $1</span>');
-        // Highlight variables {{var}} with a specific class
-        customHighlighted = customHighlighted.replace(/\{\{(.*?)\}\}/g, '<span class="hljs-variable">{{$1}}</span>');
-        
-        if (isSourcePanel) {
-            // Split into lines for gutter alignment
-            const lines = customHighlighted.split('\n');
-            const rawLines = rawCode.split('\n');
-            const gutterLines = [];
-            const processedLines = [];
-
-            const requestLineRegex = /^(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD|TRACE) (.*)$/;
-            const scriptMarkerRegex = /<span class="hljs-meta">(&gt;|&lt;)\s+{%<\/span>/;
-
-            lines.forEach((line, index) => {
-                let markerHtml = '';
-                let processedLine = line;
-
-                // Check for script marker
-                if (scriptMarkerRegex.test(line)) {
-                    markerHtml = '<span class="js-logo" title="JavaScript">JS</span>';
-                }
-
-                // Check for request line
-                const requestMatch = line.match(requestLineRegex);
-                if (requestMatch) {
-                    const [full, method, url] = requestMatch;
-                    const rawLine = rawLines[index].trim();
-                    markerHtml = `<span class="play-button" title="Run this test" data-request-line="${escapeHtml(rawLine)}" data-line-index="${index}">▶</span>`;
-                    processedLine = `<span class="hljs-keyword">${method}</span> <span class="hljs-title">${url}</span>`;
-                }
-
-                gutterLines.push(`<div class="gutter-line">${markerHtml}</div>`);
-                processedLines.push(processedLine);
+        if (language === 'http') {
+            // First, highlight the entire block as HTTP
+            const highlightedHttp = hljs.highlight(rawCode, { language: 'http' }).value;
+            
+            // Now, find and highlight nested JavaScript blocks
+            const regex = /(&gt;|&lt;)\s+{%([\s\S]*?)%}/g;
+            const finalHtml = highlightedHttp.replace(regex, (match, prefix, content) => {
+                // Decode entities to get raw JS for highlighting
+                const decodedContent = content.replace(/&amp;/g, '&')
+                                             .replace(/&lt;/g, '<')
+                                             .replace(/&gt;/g, '>')
+                                             .replace(/&quot;/g, '"')
+                                             .replace(/&#39;/g, "'");
+                const highlightedJs = hljs.highlight(decodedContent, { language: 'javascript' }).value;
+                return `<span class="hljs-meta">${prefix} {%</span>${highlightedJs}<span class="hljs-meta">%}</span>`;
             });
+            
+            // Final adjustment for HTTP specific elements
+            let customHighlighted = finalHtml;
+            customHighlighted = customHighlighted.replace(/^### (.*)$/gm, '<span class="hljs-section">### $1</span>');
+            customHighlighted = customHighlighted.replace(/^\/\/ (.*)$/gm, '<span class="hljs-comment">// $1</span>');
+            customHighlighted = customHighlighted.replace(/\{\{(.*?)\}\}/g, '<span class="hljs-variable">{{$1}}</span>');
+            
+            if (isSourcePanel) {
+                // Split into lines for gutter alignment
+                const lines = customHighlighted.split('\n');
+                const rawLines = rawCode.split('\n');
+                const gutterLines = [];
+                const processedLines = [];
 
-            sourceGutter.innerHTML = gutterLines.join('');
-            codeElement.innerHTML = processedLines.join('\n');
+                const requestLineRegex = /^(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD|TRACE) (.*)$/;
+                const scriptMarkerRegex = /<span class="hljs-meta">(&gt;|&lt;)\s+{%<\/span>/;
 
-            // Add event listeners for play buttons in gutter
-            sourceGutter.querySelectorAll('.play-button').forEach(btn => {
-                btn.onclick = (e) => {
-                    e.stopPropagation();
-                    const rawLine = btn.getAttribute('data-request-line');
-                    const lineIndex = parseInt(btn.getAttribute('data-line-index'));
-                    runSingleRequest(rawLine, lineIndex);
-                };
-            });
+                lines.forEach((line, index) => {
+                    let markerHtml = '';
+                    let processedLine = line;
+
+                    if (scriptMarkerRegex.test(line)) {
+                        markerHtml = '<span class="js-logo" title="JavaScript">JS</span>';
+                    }
+
+                    const requestMatch = line.match(requestLineRegex);
+                    if (requestMatch) {
+                        const [full, method, url] = requestMatch;
+                        const rawLine = rawLines[index].trim();
+                        markerHtml = `<span class="play-button" title="Run this test" data-request-line="${escapeHtml(rawLine)}" data-line-index="${index}">▶</span>`;
+                        processedLine = `<span class="hljs-keyword">${method}</span> <span class="hljs-title">${url}</span>`;
+                    }
+
+                    gutterLines.push(`<div class="gutter-line">${markerHtml}</div>`);
+                    processedLines.push(processedLine);
+                });
+
+                sourceGutter.innerHTML = gutterLines.join('');
+                codeElement.innerHTML = processedLines.join('\n');
+
+                sourceGutter.querySelectorAll('.play-button').forEach(btn => {
+                    btn.onclick = (e) => {
+                        e.stopPropagation();
+                        const rawLine = btn.getAttribute('data-request-line');
+                        const lineIndex = parseInt(btn.getAttribute('data-line-index'));
+                        runSingleRequest(rawLine, lineIndex);
+                    };
+                });
+            } else {
+                const requestLineRegex = /^(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD|TRACE) (.*)$/gm;
+                customHighlighted = customHighlighted.replace(requestLineRegex, (match, method, url) => {
+                    return `<span class="hljs-keyword">${method}</span> <span class="hljs-title">${url}</span>`;
+                });
+                codeElement.innerHTML = customHighlighted;
+            }
+        } else if (language === 'json') {
+            const raw = codeElement.textContent;
+            try {
+                const highlighted = hljs.highlight(raw, { language: 'json' }).value;
+                codeElement.innerHTML = highlighted;
+                
+                // Add click listeners to keys for Visual Assertion Builder
+                codeElement.querySelectorAll('.hljs-attr').forEach(el => {
+                    el.style.cursor = 'pointer';
+                });
+            } catch (err) {
+                console.warn('JSON highlight failed, falling back to highlightElement', err);
+                hljs.highlightElement(codeElement);
+            }
         } else {
-            // Standard highlighting for non-source-panel code blocks (e.g. in reports)
-            const requestLineRegex = /^(GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD|TRACE) (.*)$/gm;
-            customHighlighted = customHighlighted.replace(requestLineRegex, (match, method, url) => {
-                return `<span class="hljs-keyword">${method}</span> <span class="hljs-title">${url}</span>`;
-            });
-            codeElement.innerHTML = customHighlighted;
+            // Non-HTTP language (like json, xml, sql)
+            // If it's XML, it might have escaped entities that need to be decoded for highlight.js
+            // or we can let hljs handle it. If textContent already gives decoded text, we're good.
+            if (language === 'xml' || language === 'html') {
+                const raw = codeElement.textContent;
+                // Try XML highlighting, but fallback to auto if it fails or isn't loaded
+                try {
+                    // Check if xml language is loaded
+                    const hasXml = hljs.getLanguage('xml');
+                    if (hasXml) {
+                        const highlighted = hljs.highlight(raw, { language: 'xml' }).value;
+                        codeElement.innerHTML = highlighted;
+                    } else {
+                        // Fallback to auto-detection which often handles XML well
+                        const result = hljs.highlightAuto(raw, ['xml', 'html', 'json', 'sql']);
+                        codeElement.innerHTML = result.value;
+                    }
+                    
+                    // Add click listeners to newly created elements for Visual Assertion Builder
+                    // We don't actually need to add listeners here because there's a global onclick handler
+                    // but we can ensure they have the pointer cursor if CSS doesn't catch them.
+                    codeElement.querySelectorAll('.hljs-name, .hljs-attr').forEach(el => {
+                        el.style.cursor = 'pointer';
+                    });
+                } catch (err) {
+                    console.warn('XML highlight failed, falling back to highlightElement', err);
+                    hljs.highlightElement(codeElement);
+                }
+            } else {
+                hljs.highlightElement(codeElement);
+            }
         }
 
         codeElement.classList.add('hljs');
         codeElement.setAttribute('data-highlighted', 'yes');
     } catch (e) {
         console.error('Error in highlightHttpSource:', e);
-        // Fallback to standard highlighting if our custom one fails
         if (typeof hljs !== 'undefined') {
             hljs.highlightElement(codeElement);
         }
@@ -493,10 +578,12 @@ function highlightHttpSource(codeElement) {
 }
 
 async function runSingleRequest(requestLine, lineIndex) {
-    if (!lastSource) return;
+    // Determine the source to use: editor content if editing, otherwise lastSource
+    const currentSource = isEditing && cmEditor ? cmEditor.state.doc.toString() : lastSource;
+    if (!currentSource) return;
     
     // Parse the full source to find the request block starting with this line
-    const lines = lastSource.split('\n');
+    const lines = currentSource.split('\n');
     let requestContent = "";
     let found = false;
     const normalizedRequestLine = requestLine.trim();
@@ -655,14 +742,17 @@ async function runSingleRequest(requestLine, lineIndex) {
         // Highlight report
         setTimeout(() => {
             reportContent.querySelectorAll('pre code').forEach((block) => {
-                if (typeof hljs !== 'undefined') {
-                    hljs.highlightElement(block);
-                }
+                highlightHttpSource(block);
             });
         }, 0);
         
         exportBtn.style.display = 'block';
         exportDropdown.style.display = 'inline-block';
+        if (window.innerWidth < 1024) {
+            sourceBtn.style.display = 'block';
+        } else {
+            sourceBtn.style.display = 'none';
+        }
     } catch (error) {
         reportContent.innerHTML = `<p style="color: red">Error running request: ${error.message}</p>`;
     }
@@ -721,7 +811,11 @@ async function selectTest(testName, element, isCustom = false) {
                 highlightHttpSource(sourceCode);
             }, 0);
             
-            sourceBtn.style.display = 'block';
+            if (window.innerWidth < 1024) {
+                sourceBtn.style.display = 'block';
+            } else {
+                sourceBtn.style.display = 'none';
+            }
             globalsBtn.style.display = 'none';
             cloneBtn.style.display = 'inline-block';
             runViewBtn.style.display = 'inline-block';
@@ -817,15 +911,17 @@ async function runTest(testName, element, isCustom = false) {
             
             // Also highlight any code blocks in the report
             reportContent.querySelectorAll('pre code').forEach((block) => {
-                try {
-                    hljs.highlightElement(block);
-                } catch (e) { console.error('Error highlighting report block:', e); }
+                highlightHttpSource(block);
             });
         }, 0);
         
         exportBtn.style.display = 'block';
         exportDropdown.style.display = 'inline-block';
-        sourceBtn.style.display = 'block';
+        if (window.innerWidth < 1024) {
+            sourceBtn.style.display = 'block';
+        } else {
+            sourceBtn.style.display = 'none';
+        }
         globalsBtn.style.display = isCustom ? 'inline-block' : 'none';
         cloneBtn.style.display = 'inline-block';
         runViewBtn.style.display = 'inline-block';
@@ -891,6 +987,26 @@ function generateAssertion(element) {
     const codeBlock = element.closest('pre code');
     if (!codeBlock) return;
     
+    // Find the test name from the nearest preceding comment <!-- TEST_NAME: ... -->
+    let testName = null;
+    let currentElement = codeBlock.parentElement; // the <pre>
+    while (currentElement) {
+        // Look back through previous siblings
+        let sibling = currentElement.previousSibling;
+        while (sibling) {
+            if (sibling.nodeType === Node.COMMENT_NODE) {
+                const match = sibling.nodeValue.match(/TEST_NAME:\s*(.*)/);
+                if (match) {
+                    testName = match[1].trim();
+                    break;
+                }
+            }
+            sibling = sibling.previousSibling;
+        }
+        if (testName) break;
+        currentElement = currentElement.parentElement;
+    }
+
     const isJson = codeBlock.classList.contains('language-json');
     const isXml = codeBlock.classList.contains('language-xml');
     
@@ -911,22 +1027,24 @@ function generateAssertion(element) {
         }
 
         // Try to find the path to the clicked key
-        // Since we only have the key name, we'll look for it in the object
-        // If it's a deep object, we might find multiple matches.
-        // For now, we'll use a simple recursive search and take the first one.
-        function findPath(obj, targetKey, currentPath = "response.body") {
+        // We'll use the clicked value to disambiguate matches in arrays
+        function findPath(obj, targetKey, targetValue, currentPath = "response.body") {
             if (obj && typeof obj === 'object') {
                 if (Array.isArray(obj)) {
                     for (let i = 0; i < obj.length; i++) {
-                        const path = findPath(obj[i], targetKey, `${currentPath}[${i}]`);
+                        const path = findPath(obj[i], targetKey, targetValue, `${currentPath}[${i}]`);
                         if (path) return path;
                     }
                 } else {
                     if (Object.prototype.hasOwnProperty.call(obj, targetKey)) {
-                        return `${currentPath}.${targetKey}`;
+                        const val = obj[targetKey];
+                        // If values match (loosely), we found our path
+                        if (String(val) === String(targetValue)) {
+                            return `${currentPath}.${targetKey}`;
+                        }
                     }
                     for (const key in obj) {
-                        const path = findPath(obj[key], targetKey, `${currentPath}.${key}`);
+                        const path = findPath(obj[key], targetKey, targetValue, `${currentPath}.${key}`);
                         if (path) return path;
                     }
                 }
@@ -934,43 +1052,209 @@ function generateAssertion(element) {
             return null;
         }
 
-        const fullPath = findPath(data, clickedText) || `response.body.${clickedText}`;
-        
         // Find the value for the assertion
-        let value = "";
+        let clickedValue = "";
         let nextSibling = element.nextSibling;
         while (nextSibling) {
             const text = nextSibling.textContent.trim();
             if (text && text !== ":" && text !== ",") {
-                value = text.replace(/["']/g, '');
+                clickedValue = text.replace(/["']/g, '');
                 break;
             }
             nextSibling = nextSibling.nextSibling;
         }
+
+        const fullPath = findPath(data, clickedText, clickedValue) || `response.body.${clickedText}`;
         
-        assertion = `client.test("Check ${clickedText}", () => {\n    client.assert(${fullPath} === ${isNaN(value) || value === "" ? `"${value}"` : value}, "Expected ${clickedText} to be ${value}");\n});`;
+        // Generate the test/assertion snippet
+        // We'll use \n as a placeholder for indentation which will be handled during insertion
+        assertion = `client.test("Check ${clickedText}", () => {\n    client.assert(${fullPath} === ${isNaN(clickedValue) || clickedValue === "" ? `"${clickedValue}"` : clickedValue}, "Expected ${clickedText} to be ${clickedValue}");\n});`;
     } else if (isXml) {
-        // For XML, use a simple getElementsByTagName or a more complex one if needed
-        assertion = `client.test("Check ${clickedText}", () => {\n    client.assert(response.body.getElementsByTagName("${clickedText}")[0].textContent === "value", "Expected ${clickedText} to have specific value");\n});`;
+        // Find the value for the assertion (content inside tags)
+        let clickedValue = "";
+        
+        // In hljs highlighted XML, the value is often a text node between the opening tag's ">" and the next "<"
+        // Find the closing bracket of the current tag
+        let closingBracket = null;
+        let curr = element;
+        while (curr) {
+            if (curr.textContent === ">") {
+                closingBracket = curr;
+                break;
+            }
+            curr = curr.nextSibling;
+        }
+
+        if (closingBracket) {
+            // Collect all text nodes until the next tag starts
+            let next = closingBracket.nextSibling;
+            
+            // If the closing bracket is the last child of a span.hljs-tag, the value starts at the next sibling of that span
+            if (!next && closingBracket.parentElement && closingBracket.parentElement.classList.contains('hljs-tag')) {
+                next = closingBracket.parentElement.nextSibling;
+            }
+
+            while (next) {
+                if (next.nodeType === Node.TEXT_NODE) {
+                    clickedValue += next.textContent;
+                } else if (next.nodeType === Node.ELEMENT_NODE) {
+                    // Check if this element is an opening tag of another element or a closing tag
+                    if (next.classList.contains('hljs-tag')) {
+                        // If it's a closing tag of the CURRENT element, we should probably stop.
+                        // But wait, highlight.js might split the closing tag into siblings too.
+                        // A simple way is to check if it contains "</"
+                        if (next.textContent.includes('</')) {
+                            break;
+                        }
+                        // If it's an opening tag of a CHILD element, we want to capture its content too?
+                        // No, usually we want the text content of the parent element.
+                        // If we are clicking a parent tag, response.body.getElementsByTagName(tag)[i].textContent
+                        // will return the concatenated text of all children anyway.
+                        // So we should continue until we hit the CLOSING tag of the clicked element.
+                        // BUT, the current implementation of findXmlPath doesn't know about depth.
+                        // For simplicity, let's just capture until the next tag starts.
+                        break; 
+                    }
+                    if (next.classList.contains('hljs-meta')) {
+                        break;
+                    }
+                    clickedValue += next.textContent;
+                }
+                next = next.nextSibling;
+            }
+            clickedValue = clickedValue.trim();
+        }
+
+        // For XML, use a smarter path detection
+        const rawXml = codeBlock.textContent;
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(rawXml, "text/xml");
+        
+        // Disambiguate by calculating the occurrence index of the clicked element in the report
+        function findXmlPath(targetTag, targetValue, targetElement) {
+            const allElementsOfSameTag = codeBlock.querySelectorAll('.hljs-name');
+            let occurrenceIndex = 0;
+            let found = false;
+            
+            for (let i = 0; i < allElementsOfSameTag.length; i++) {
+                const el = allElementsOfSameTag[i];
+                if (el.textContent.trim() === targetTag && el.parentElement.classList.contains('hljs-tag')) {
+                    // Check if it's an opening tag (not preceded by </)
+                    let isOpening = true;
+                    let prev = el.previousSibling;
+                    while (prev) {
+                        if (prev.textContent === '</') {
+                            isOpening = false;
+                            break;
+                        }
+                        if (prev.textContent === '<') {
+                            isOpening = true;
+                            break;
+                        }
+                        prev = prev.previousSibling;
+                    }
+
+                    if (isOpening) {
+                        if (el === targetElement) {
+                            found = true;
+                            break;
+                        }
+                        occurrenceIndex++;
+                    }
+                }
+            }
+            
+            return `response.body.getElementsByTagName("${targetTag}")[${occurrenceIndex}]`;
+        }
+
+        const fullPath = findXmlPath(clickedText, clickedValue, element);
+        
+        // Escape clickedValue for the assertion string
+        const escapedValue = clickedValue.replace(/"/g, '\\"');
+        assertion = `client.test("Check ${clickedText}", () => {\n    client.assert(${fullPath}.textContent === "${escapedValue}", "Expected ${clickedText} to be ${escapedValue}");\n});`;
     }
     
     if (assertion && cmEditor) {
         const doc = cmEditor.state.doc;
         const fullContent = doc.toString();
         
-        // Find if there is already a post-script block
-        const postScriptMatch = fullContent.match(/> {%([\s\S]*?)%}/);
+        // Target index for search and insertion
+        let targetInsertPos = doc.length;
+        let existingPostScriptRange = null;
+        let indent = "    "; // Default 4 spaces
+
+        if (testName) {
+            // Find the request block in the source
+            // Escape testName for regex
+            const escapedName = testName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const requestRegex = new RegExp(`^###\\s*${escapedName}\\s*$`, 'm');
+            const match = fullContent.match(requestRegex);
+            
+            if (match) {
+                const requestStartIdx = match.index;
+                // Find where this request block ends (either next ### or end of file)
+                const nextRequestMatch = fullContent.slice(requestStartIdx + 1).match(/^###/m);
+                const requestEndIdx = nextRequestMatch ? requestStartIdx + 1 + nextRequestMatch.index : doc.length;
+                
+                const requestBlock = fullContent.slice(requestStartIdx, requestEndIdx);
+                const postScriptMatch = requestBlock.match(/> {%([\s\S]*?)%}/);
+                
+                if (postScriptMatch) {
+                    const relativeStart = postScriptMatch.index;
+                    const relativeEnd = requestBlock.indexOf('%}', relativeStart);
+                    existingPostScriptRange = {
+                        from: requestStartIdx + relativeEnd,
+                        to: requestStartIdx + relativeEnd
+                    };
+
+                    // Detect indentation from the last line in the script block
+                    const scriptContent = postScriptMatch[1];
+                    const lines = scriptContent.split('\n').filter(l => l.trim().length > 0);
+                    if (lines.length > 0) {
+                        const lastLine = lines[lines.length - 1];
+                        const indentMatch = lastLine.match(/^(\s+)/);
+                        if (indentMatch) {
+                            indent = indentMatch[1];
+                        }
+                    }
+                } else {
+                    targetInsertPos = requestEndIdx;
+                }
+            }
+        } else {
+            // Fallback to original behavior: first post-script or end of file
+            const postScriptMatch = fullContent.match(/> {%([\s\S]*?)%}/);
+            if (postScriptMatch) {
+                const endIdx = fullContent.indexOf('%}', postScriptMatch.index);
+                existingPostScriptRange = { from: endIdx, to: endIdx };
+
+                // Detect indentation
+                const scriptContent = postScriptMatch[1];
+                const lines = scriptContent.split('\n').filter(l => l.trim().length > 0);
+                if (lines.length > 0) {
+                    const lastLine = lines[lines.length - 1];
+                    const indentMatch = lastLine.match(/^(\s+)/);
+                    if (indentMatch) {
+                        indent = indentMatch[1];
+                    }
+                }
+            }
+        }
+
+        // Apply indentation to the assertion block
+        const indentedAssertion = assertion.split('\n').join('\n' + indent);
         
-        if (postScriptMatch) {
+        if (existingPostScriptRange) {
             // Append to existing post-script
-            const endIdx = fullContent.indexOf('%}', postScriptMatch.index);
             cmEditor.dispatch({
-                changes: { from: endIdx, to: endIdx, insert: `\n    ${assertion}\n` }
+                changes: { from: existingPostScriptRange.from, to: existingPostScriptRange.to, insert: `\n${indent}${indentedAssertion}\n` }
             });
         } else {
-            // Create new post-script at the end
+            // Create new post-script
+            // Ensure we add it on a new line and not directly after content if it's missing one
+            const prefix = targetInsertPos > 0 && !fullContent[targetInsertPos - 1].match(/\n/) ? '\n\n' : '\n\n';
             cmEditor.dispatch({
-                changes: { from: doc.length, to: doc.length, insert: `\n\n> {%\n    ${assertion}\n%}` }
+                changes: { from: targetInsertPos, to: targetInsertPos, insert: `${prefix}> {%\n${indent}${indentedAssertion}\n%}` }
             });
         }
         
@@ -996,7 +1280,10 @@ sourceBtn.onclick = async () => {
         reportContent.innerHTML = `<pre><code class="language-http">${escapeHtml(lastSource)}</code></pre>`;
         setTimeout(() => {
             if (typeof hljs !== 'undefined') {
-                highlightHttpSource(reportContent.querySelector('code'));
+                const code = reportContent.querySelector('code');
+                if (code) {
+                    highlightHttpSource(code);
+                }
             }
         }, 0);
         sourceBtn.textContent = 'View Report';
@@ -1162,9 +1449,9 @@ addTestBtn.onclick = () => {
     reportContent.innerHTML = '<p>Write your test and click Save or Run.</p>';
 };
 
-importOpenApiBtn.onclick = (e) => {
+importBtnSidebar.onclick = (e) => {
     e.stopPropagation();
-    const rect = importOpenApiBtn.getBoundingClientRect();
+    const rect = importBtnSidebar.getBoundingClientRect();
     importOptions.style.top = (rect.bottom + window.scrollY) + 'px';
     importOptions.style.left = (rect.left + window.scrollX) + 'px';
     importOptions.style.display = importOptions.style.display === 'block' ? 'none' : 'block';
@@ -1176,50 +1463,64 @@ document.addEventListener('click', () => {
 });
 
 importFileBtn.onclick = () => {
-    openapiFileInput.click();
+    importFileInput.click();
 };
 
 importUrlBtn.onclick = async () => {
-    const url = prompt('Enter OpenAPI Spec URL:');
+    const url = prompt('Enter Spec URL (OpenAPI, Postman, or Insomnia):');
     if (!url) return;
     try {
         const response = await fetch(`/api/fetch-external?url=${encodeURIComponent(url)}`);
         if (!response.ok) throw new Error('Failed to fetch URL');
         const content = await response.text();
-        handleImportedSpec(content, url);
+        handleImportedContent(content, url);
     } catch (err) {
-        alert('Error fetching OpenAPI spec: ' + err.message);
+        alert('Error fetching spec: ' + err.message);
     }
 };
 
 importPasteBtn.onclick = () => {
-    const content = prompt('Paste OpenAPI Spec (JSON or YAML):');
+    const content = prompt('Paste Spec (OpenAPI JSON/YAML, Postman JSON, or Insomnia JSON):');
     if (!content) return;
-    handleImportedSpec(content, 'Pasted Spec');
+    handleImportedContent(content, 'Pasted Content');
 };
 
-openapiFileInput.onchange = (e) => {
+importFileInput.onchange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onload = (event) => {
-        handleImportedSpec(event.target.result, file.name);
+        handleImportedContent(event.target.result, file.name);
     };
     reader.readAsText(file);
-    openapiFileInput.value = '';
+    importFileInput.value = '';
 };
 
-function handleImportedSpec(content, sourceName) {
+function handleImportedContent(content, sourceName) {
     try {
-        let spec;
+        let data;
         try {
-            spec = JSON.parse(content);
+            data = JSON.parse(content);
         } catch (e) {
-            spec = jsyaml.load(content);
+            data = jsyaml.load(content);
         }
         
-        const httpContent = convertOpenApiToHttp(spec);
+        let httpContent = "";
+        let type = "";
+
+        if (data.openapi || data.swagger) {
+            httpContent = convertOpenApiToHttp(data);
+            type = "OpenAPI";
+        } else if (data.info && data.info._postman_id || data.info && data.info.schema && data.info.schema.includes('postman')) {
+            httpContent = convertPostmanToHttp(data);
+            type = "Postman";
+        } else if (data._type === 'export' && data.__export_format === 4) {
+            httpContent = convertInsomniaToHttp(data);
+            type = "Insomnia";
+        } else {
+            throw new Error('Unrecognized format. Please provide an OpenAPI, Postman, or Insomnia spec.');
+        }
         
         currentTestName = '';
         unsavedGlobals = null;
@@ -1238,9 +1539,9 @@ function handleImportedSpec(content, sourceName) {
         cloneBtn.textContent = 'Cancel';
         
         document.querySelectorAll('#test-list li').forEach(li => li.classList.remove('active'));
-        reportContent.innerHTML = `<p>Imported from ${sourceName}. Review and Save or Run.</p>`;
+        reportContent.innerHTML = `<p>Imported ${type} from ${sourceName}. Review and Save or Run.</p>`;
     } catch (err) {
-        alert('Error parsing OpenAPI spec: ' + err.message);
+        alert('Error parsing content: ' + err.message);
     }
 }
 
@@ -1412,6 +1713,166 @@ function convertOpenApiToHttp(spec) {
     return http;
 }
 
+function convertPostmanToHttp(data) {
+    let http = `### ${data.info?.name || 'Postman Import'}\n`;
+    if (data.info?.description) {
+        let desc = typeof data.info.description === 'string' ? data.info.description : data.info.description.content || "";
+        http += `// ${desc.replace(/\n/g, '\n// ')}\n`;
+    }
+    http += '\n';
+
+    function processItems(items) {
+        for (const item of items) {
+            if (item.item) {
+                // It's a folder
+                http += `// Folder: ${item.name}\n`;
+                processItems(item.item);
+                continue;
+            }
+
+            const request = item.request;
+            if (!request) continue;
+
+            http += `### ${item.name || 'Request'}\n`;
+            if (request.description) {
+                let desc = typeof request.description === 'string' ? request.description : request.description.content || "";
+                http += `// ${desc.replace(/\n/g, '\n// ')}\n`;
+            }
+
+            const method = request.method || 'GET';
+            let url = "";
+            if (typeof request.url === 'string') {
+                url = request.url;
+            } else if (request.url && request.url.raw) {
+                url = request.url.raw;
+            }
+
+            // Postman uses {{variable}} which is compatible with our format
+            http += `${method} ${url}\n`;
+
+            if (request.header) {
+                request.header.forEach(h => {
+                    if (!h.disabled) {
+                        http += `${h.key}: ${h.value}\n`;
+                    }
+                });
+            }
+
+            if (request.body && request.body.mode === 'raw') {
+                http += '\n';
+                http += request.body.raw + '\n';
+            } else if (request.body && request.body.mode === 'urlencoded') {
+                http += 'Content-Type: application/x-www-form-urlencoded\n\n';
+                const params = request.body.urlencoded.map(p => `${p.key}=${p.value}`).join('&');
+                http += params + '\n';
+            } else if (request.body && request.body.mode === 'formdata') {
+                http += '// Form-data body is not fully supported in conversion yet\n';
+            }
+
+            http += '\n';
+
+            // Scripts (tests)
+            if (item.event) {
+                item.event.forEach(ev => {
+                    if (ev.listen === 'test' && ev.script && ev.script.exec) {
+                        http += '> {%\n';
+                        const lines = Array.isArray(ev.script.exec) ? ev.script.exec : [ev.script.exec];
+                        lines.forEach(line => {
+                            // Basic mapping of postman specific snippets to our format
+                            let mappedLine = line
+                                .replace(/pm\.response\.to\.have\.status\((\d+)\)/g, 'client.assert(response.status === $1, "Status should be $1")')
+                                .replace(/pm\.test\(/g, 'client.test(')
+                                .replace(/pm\.expect\(/g, 'client.assert(')
+                                .replace(/pm\.response\.json\(\)/g, 'response.body')
+                                .replace(/pm\.environment\.set\(/g, 'client.global.set(')
+                                .replace(/pm\.globals\.set\(/g, 'client.global.set(');
+                            http += `    ${mappedLine}\n`;
+                        });
+                        http += '%}\n\n';
+                    } else if (ev.listen === 'prerequest' && ev.script && ev.script.exec) {
+                         http += '< {%\n';
+                         const lines = Array.isArray(ev.script.exec) ? ev.script.exec : [ev.script.exec];
+                         lines.forEach(line => {
+                             let mappedLine = line
+                                 .replace(/pm\.environment\.set\(/g, 'client.global.set(')
+                                 .replace(/pm\.globals\.set\(/g, 'client.global.set(');
+                             http += `    ${mappedLine}\n`;
+                         });
+                         http += '%}\n\n';
+                    }
+                });
+            }
+        }
+    }
+
+    if (data.item) {
+        processItems(data.item);
+    }
+
+    return http;
+}
+
+function convertInsomniaToHttp(data) {
+    let http = `### Insomnia Export\n\n`;
+    
+    const resources = data.resources || [];
+    const requests = resources.filter(r => r._type === 'request');
+    const environments = resources.filter(r => r._type === 'environment');
+    
+    // We can add environment variables as comments or at the top
+    if (environments.length > 0) {
+        http += `// Environments found:\n`;
+        environments.forEach(env => {
+            http += `// ${env.name}: ${JSON.stringify(env.data)}\n`;
+        });
+        http += '\n';
+    }
+
+    requests.forEach(req => {
+        http += `### ${req.name || 'Request'}\n`;
+        if (req.description) {
+            http += `// ${req.description.replace(/\n/g, '\n// ')}\n`;
+        }
+
+        const method = req.method || 'GET';
+        // Insomnia uses {{ _.variable }} or {{ variable }}
+        let url = req.url.replace(/\{\{\s*_\./g, '{{').replace(/\{\{\s*/g, '{{').replace(/\s*\}\}/g, '}}');
+        
+        http += `${method} ${url}\n`;
+
+        if (req.headers) {
+            req.headers.forEach(h => {
+                http += `${h.name}: ${h.value}\n`;
+            });
+        }
+
+        if (req.authentication) {
+            const auth = req.authentication;
+            if (auth.type === 'basic') {
+                http += `Authorization: Basic ${auth.username} ${auth.password}\n`;
+            } else if (auth.type === 'bearer') {
+                http += `Authorization: Bearer ${auth.token}\n`;
+            }
+        }
+
+        if (req.body && req.body.text) {
+            http += '\n';
+            http += req.body.text + '\n';
+        } else if (req.body && req.body.params) {
+             http += 'Content-Type: application/x-www-form-urlencoded\n\n';
+             const params = req.body.params.map(p => `${p.name}=${p.value}`).join('&');
+             http += params + '\n';
+        }
+
+        http += '\n';
+        
+        // Insomnia doesn't have standard script support in export format as easily as postman 
+        // but some versions might have them. If they exist in resources as 'script' we could link them.
+    });
+
+    return http;
+}
+
 saveCustomBtn.onclick = () => {
     const editedCode = cmEditor ? cmEditor.state.doc.toString() : '';
     if (!isCustomTest || currentTestName === '') {
@@ -1439,7 +1900,10 @@ saveCustomBtn.onclick = () => {
         // In custom tests, we stay in edit mode
         isEditing = true;
         cloneBtn.textContent = 'Cancel';
-        sourceBtn.style.display = 'none';
+        // Only hide sourceBtn if we are on desktop where source is always visible
+        if (window.innerWidth >= 1024) {
+            sourceBtn.style.display = 'none';
+        }
     }
 };
 
@@ -1494,10 +1958,26 @@ runCustomBtn.onclick = async () => {
         reportContent.innerHTML = marked.parse(lastMarkdown);
         sourceCode.textContent = lastSource;
         
+        // Ensure buttons are visible after run
+        exportBtn.style.display = 'block';
+        exportDropdown.style.display = 'inline-block';
+        
+        // Use setTimeout to ensure DOM is updated before highlighting
+        setTimeout(() => {
+            if (typeof hljs !== 'undefined') {
+                reportContent.querySelectorAll('pre code').forEach((block) => {
+                    highlightHttpSource(block);
+                });
+            }
+        }, 0);
+        
         // In custom tests, we stay in edit mode
         isEditing = true;
         cloneBtn.textContent = 'Cancel';
-        sourceBtn.style.display = 'none';
+        // Only hide sourceBtn if we are on desktop where source is always visible
+        if (window.innerWidth >= 1024) {
+            sourceBtn.style.display = 'none';
+        }
         
     } catch (error) {
         reportContent.innerHTML = `<p style="color: red">Error running custom test: ${error.message}</p>`;

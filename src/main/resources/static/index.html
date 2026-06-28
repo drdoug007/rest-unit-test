@@ -12,6 +12,7 @@
     <script src="lib/highlight/languages/http.min.js"></script>
     <script src="lib/highlight/languages/javascript.min.js"></script>
     <script src="lib/highlight/languages/json.min.js"></script>
+    <script src="lib/highlight/languages/xml.min.js"></script>
     <script src="lib/highlight/languages/sql.min.js"></script>
     <script src="lib/js-yaml.min.js"></script>
     <script src="lib/codemirror6.js"></script>
@@ -23,7 +24,7 @@
         <div id="header-actions">
             <button id="source-btn" class="btn-source">View Source</button>
             <div id="export-dropdown" class="export-dropdown" style="display: none;">
-                <button id="export-btn" class="btn-export" style="display: block;">Export</button>
+                <button id="export-btn" class="btn-export">Export</button>
                 <div id="export-options" class="export-options">
                     <button id="export-pdf-btn">Export to PDF</button>
                     <button id="export-word-btn">Export to Word</button>
@@ -141,15 +142,15 @@
                 Available Tests
                 <div style="display: flex; gap: 5px;">
                     <button id="add-test-btn" class="btn-clone">+ New</button>
-                    <button id="import-openapi-btn" class="btn-clone" style="background-color: #28a745;">Import OpenAPI</button>
+                    <button id="import-btn-sidebar" class="btn-clone" style="background-color: #28a745;">Import</button>
                     <div id="import-options" class="import-options">
                         <button id="import-file-btn">From File</button>
                         <button id="import-url-btn">From URL</button>
-                        <button id="import-paste-btn">Paste Spec</button>
+                        <button id="import-paste-btn">Paste</button>
                     </div>
                 </div>
             </h3>
-            <input type="file" id="openapi-file-input" style="display: none;" accept=".yaml,.yml,.json">
+            <input type="file" id="import-file-input" style="display: none;" accept=".yaml,.yml,.json">
             <ul id="test-list">
                 <li class="loading">Loading tests...</li>
             </ul>

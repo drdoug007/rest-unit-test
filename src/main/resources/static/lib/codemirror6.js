@@ -29567,7 +29567,10 @@
     oneDark,
     Compartment,
     keymap,
-    indentWithTab
+    indentWithTab,
+    gutter,
+    GutterMarker,
+    RangeSet
   };
 
 })();

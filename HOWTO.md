@@ -37,6 +37,10 @@ This document provides a comprehensive guide and examples for using JavaScript i
 
 ---
 
+11. [Importing Collections (OpenAPI, Postman, Insomnia)](#importing-collections-openapi-postman-insomnia)
+
+---
+
 ## Overview
 JavaScript can be included in `.http` files using script blocks:
 - `< {% ... %}`: Pre-request script (runs before the request).
@@ -410,3 +414,31 @@ The following code will be added to your `.http` file:
 - **XML Support**: Generates DOM-based assertions using `getElementsByTagName`.
 - **Instant Feedback**: A toast notification confirms when an assertion has been added.
 - **Automatic Script Blocks**: Creates a new post-script block if one doesn't exist, or appends to the current one.
+
+---
+
+## Importing Collections (OpenAPI, Postman, Insomnia)
+
+You can import existing API collections from various formats to quickly generate `.http` test files.
+
+### Supported Formats
+- **OpenAPI 3.0 (JSON/YAML)**: Imports paths, methods, headers, and generates request body examples from schemas.
+- **Postman Collections (v2.1)**: Imports requests, folders, headers, and basic pre-request/test scripts.
+- **Insomnia Exports (v4)**: Imports requests and environment variables.
+
+### How to Import
+1. Click the green **Import** button in the sidebar.
+2. Select your preferred method:
+   - **From File**: Upload a `.json`, `.yaml`, or `.yml` file.
+   - **From URL**: Provide a direct link to the specification.
+   - **Paste**: Paste the raw JSON/YAML content into the prompt.
+3. The tool will automatically detect the format and convert it into a new custom `.http` test.
+4. Review the generated test, make any necessary adjustments, and click **Save** or **Run**.
+
+### Postman Script Mapping
+The importer makes a "best-effort" attempt to map Postman scripts to **rest-unit-test** syntax:
+- `pm.test(...)` → `client.test(...)`
+- `pm.expect(...)` → `client.assert(...)`
+- `pm.response.json()` → `response.body`
+- `pm.environment.set(...)` → `client.global.set(...)`
+- Status code checks are also automatically converted.

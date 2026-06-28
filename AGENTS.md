@@ -174,3 +174,28 @@ This project uses AI agents (like Junie) to assist in development, refactoring, 
 - Integrated the builder with the source editor to append generated assertions to post-script blocks.
 - Implemented smart JSON path detection and toast notifications for a better user experience.
 - Documented the Visual Assertion Builder in `HOWTO.md`.
+- Improved XML and HTML syntax highlighting in test reports by using `hljs.highlightAuto` as a fallback and explicitly handling escaped content.
+- Ensured XML language support is available in the web UI for better visualization of response bodies.
+- Fixed an issue where the "Export" button and dropdown were hidden after running a test by correctly managing their visibility state in `scripts.js`.
+- Improved UI consistency for desktop by hiding the redundant "View Source" button while preserving the "Export" functionality.
+- Fixed an issue where the "View Source" button remained hidden after running a single request on smaller screens.
+- Cleaned up redundant inline styles in `index.html` to improve UI stability and button visibility.
+- Fixed a 404 error and MIME type mismatch for `xml.min.js` by adding the missing library file to the project's local assets.
+- Fixed an issue where the "Export" and "View Source" buttons were not displayed for reports generated from custom `.http` tests.
+- Improved syntax highlighting in test reports for custom tests by ensuring highlight.js is triggered after execution.
+- Fixed a bug in the Visual Assertion Builder where assertions were added to the wrong test block in multi-test files by introducing hidden test name metadata in reports.
+- Enhanced `scripts.js` to correctly identify the target request block in the source code panel before appending or creating assertions.
+- Improved the Visual Assertion Builder to correctly identify array indices in JSON responses by matching both the key and the clicked value.
+- Enhanced the Visual Assertion Builder to automatically match the indentation style of existing script blocks when adding new assertions.
+- Improved the Visual Assertion Builder for XML responses to dynamically identify element indices and values, enabling accurate assertions for repeated tags.
+- Fixed a bug in the Visual Assertion Builder for XML where clicking on tags in repeated items could result in incorrect indices and empty values in the generated assertions by improving DOM traversal and value extraction.
+- Enhanced XML path detection in the Visual Assertion Builder to robustly handle complex nested structures and multiple elements with the same tag name by calculating occurrence indices directly from the highlighted report.
+- Ensured that generated XML assertions correctly escape quotes in text content and accurately reflect the selected element's value.
+- Fixed a bug in the Visual Assertion Builder where XML values were not correctly captured due to `highlight.js` splitting opening tags and text content across multiple DOM nodes.
+- Implemented a custom gutter for the CodeMirror 6 editor in custom tests, providing play buttons next to individual HTTP requests for single-test execution.
+- Enhanced `runSingleRequest` to dynamically use the editor's content when active, ensuring custom edits can be tested individually without saving.
+- Fixed a `TypeError` in `scripts.js` caused by missing exports for `gutter`, `GutterMarker`, and `RangeSet` in the local `codemirror6.js` library.
+- Implemented comprehensive collection import capability for Postman (v2.1) and Insomnia (v4), alongside existing OpenAPI support.
+- Refactored the Web UI to provide a unified "Import" experience for all supported API collection formats.
+- Implemented automatic script mapping for Postman tests and pre-request scripts during import.
+- Updated documentation in `HOWTO.md` to include instructions for importing collections.

@@ -115,7 +115,7 @@ h1 { margin: 0; color: var(--primary-color); }
         max-width: none;
     }
     .btn-source {
-        display: none !important;
+        display: none;
     }
     .source-panel {
         display: flex !important;
@@ -439,7 +439,7 @@ pre {
 .btn-logout:hover {
     background-color: #c82333;
 }
-#add-test-btn, #import-openapi-btn, #add-global-row-btn, #save-globals-btn, #add-env-var-btn, #save-envs-btn, #toggle-globals-format-btn, #toggle-env-format-btn {
+#add-test-btn, #import-btn-sidebar, #add-global-row-btn, #save-globals-btn, #add-env-var-btn, #save-envs-btn, #toggle-globals-format-btn, #toggle-env-format-btn {
     display: inline-block !important;
     min-width: auto;
     padding: 4px 10px;
@@ -465,6 +465,9 @@ pre {
 }
 .cm-editor {
     height: 100%;
+}
+.cm-run-gutter .play-button {
+    padding-left: 2px;
 }
 .cm-scroller {
     overflow: auto;

@@ -172,6 +172,7 @@ public class RestTestService {
                     continue;
                 }
                 report.append("## ").append(test.getName()).append("\n\n");
+                report.append("<!-- TEST_NAME: ").append(test.getName()).append(" -->\n");
                 executeTest(test, requestJS, httpClientJS, report, context);
                 report.append("\n---\n\n");
                 
