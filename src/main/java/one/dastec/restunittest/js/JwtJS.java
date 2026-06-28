@@ -76,19 +76,20 @@ public class JwtJS {
     }
 
     private Algorithm getAlgorithm(String name, Object key) {
-        switch (name) {
-            case "HS256": return Algorithm.HMAC256(getKeyBytes(key));
-            case "HS384": return Algorithm.HMAC384(getKeyBytes(key));
-            case "HS512": return Algorithm.HMAC512(getKeyBytes(key));
-            case "RS256": return Algorithm.RSA256((RSAPublicKey) getPublicKey(key), (RSAPrivateKey) getPrivateKey(key));
-            case "RS384": return Algorithm.RSA384((RSAPublicKey) getPublicKey(key), (RSAPrivateKey) getPrivateKey(key));
-            case "RS512": return Algorithm.RSA512((RSAPublicKey) getPublicKey(key), (RSAPrivateKey) getPrivateKey(key));
-            case "PS256": return Algorithm.RSA256((RSAPublicKey) getPublicKey(key), (RSAPrivateKey) getPrivateKey(key)); // java-jwt handles PSS via different means if needed, but RSA256 is often used
-            case "ES256": return Algorithm.ECDSA256((ECPublicKey) getPublicKey(key), (ECPrivateKey) getPrivateKey(key));
-            case "ES384": return Algorithm.ECDSA384((ECPublicKey) getPublicKey(key), (ECPrivateKey) getPrivateKey(key));
-            case "ES512": return Algorithm.ECDSA512((ECPublicKey) getPublicKey(key), (ECPrivateKey) getPrivateKey(key));
-            default: throw new UnsupportedOperationException("Algorithm not supported: " + name);
-        }
+        return switch (name) {
+            case "HS256" -> Algorithm.HMAC256(getKeyBytes(key));
+            case "HS384" -> Algorithm.HMAC384(getKeyBytes(key));
+            case "HS512" -> Algorithm.HMAC512(getKeyBytes(key));
+            case "RS256" -> Algorithm.RSA256((RSAPublicKey) getPublicKey(key), (RSAPrivateKey) getPrivateKey(key));
+            case "RS384" -> Algorithm.RSA384((RSAPublicKey) getPublicKey(key), (RSAPrivateKey) getPrivateKey(key));
+            case "RS512" -> Algorithm.RSA512((RSAPublicKey) getPublicKey(key), (RSAPrivateKey) getPrivateKey(key));
+            case "PS256" ->
+                    Algorithm.RSA256((RSAPublicKey) getPublicKey(key), (RSAPrivateKey) getPrivateKey(key)); // java-jwt handles PSS via different means if needed, but RSA256 is often used
+            case "ES256" -> Algorithm.ECDSA256((ECPublicKey) getPublicKey(key), (ECPrivateKey) getPrivateKey(key));
+            case "ES384" -> Algorithm.ECDSA384((ECPublicKey) getPublicKey(key), (ECPrivateKey) getPrivateKey(key));
+            case "ES512" -> Algorithm.ECDSA512((ECPublicKey) getPublicKey(key), (ECPrivateKey) getPrivateKey(key));
+            default -> throw new UnsupportedOperationException("Algorithm not supported: " + name);
+        };
     }
 
     private byte[] getKeyBytes(Object key) {
