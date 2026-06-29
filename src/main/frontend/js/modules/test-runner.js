@@ -92,6 +92,11 @@ function deleteCustomTest(name) {
 
 export async function selectTest(name, element, isCustom) {
     console.log(`Selecting test: ${name} (isCustom: ${isCustom})`);
+    
+    const dashboardContent = document.getElementById('dashboard-content');
+    if (dashboardContent) dashboardContent.style.display = 'none';
+    if (reportContent) reportContent.style.display = 'block';
+
     state.currentTestName = name;
     state.isCustomTest = isCustom;
     

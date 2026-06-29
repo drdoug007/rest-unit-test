@@ -1,5 +1,6 @@
 import { state, editor as cmEditor, reportContent, sourceEditor, runCustomBtn, debugCustomBtn, debugViewBtn, saveCustomBtn, globalsBtn, runViewBtn, cloneBtn, sourceBtn, testList, addTestBtn, setEditorContent, exportBtn, exportDropdown, saveCustomTest, saveCustomGlobals, getCustomTests, getCustomGlobals } from './core.js';
 import { fetchTests, runTest, highlightHttpSource } from './test-runner.js';
+import { showDashboard } from './dashboard.js';
 import { getSelectedEnvVars } from './env-manager.js';
 import { updateEditorTheme, setReadOnly } from './editor.js';
 import { initDebugger, resume, stepOver, stepInto, stepOut, stop } from './debugger.js';
@@ -26,6 +27,14 @@ export function setupInit() {
     }
     updateHighlightTheme();
 
+    const dashboardBtn = document.getElementById('dashboard-btn');
+    const dashboardContent = document.getElementById('dashboard-content');
+    if (dashboardBtn) {
+        dashboardBtn.onclick = () => {
+            showDashboard();
+        };
+    }
+
     window.onclick = (event) => {
         const envModal = document.getElementById('env-modal');
         const globalsModal = document.getElementById('globals-modal');
@@ -40,6 +49,10 @@ export function setupInit() {
             e.stopPropagation();
         }
         try {
+            const dashboardContent = document.getElementById('dashboard-content');
+            if (dashboardContent) dashboardContent.style.display = 'none';
+            if (reportContent) reportContent.style.display = 'block';
+
             state.currentTestName = '';
             state.unsavedGlobals = null;
             state.isCustomTest = true;
@@ -77,6 +90,10 @@ export function setupInit() {
             e.preventDefault();
             e.stopPropagation();
         }
+
+        const dashboardContent = document.getElementById('dashboard-content');
+        if (dashboardContent) dashboardContent.style.display = 'none';
+        if (reportContent) reportContent.style.display = 'block';
         
         const btnText = cloneBtn.textContent.trim();
 

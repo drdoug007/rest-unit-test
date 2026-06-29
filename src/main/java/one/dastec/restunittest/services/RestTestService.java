@@ -1,6 +1,8 @@
 package one.dastec.restunittest.services;
 
 import one.dastec.restunittest.config.AppProperties;
+import one.dastec.restunittest.entities.TestResult;
+import one.dastec.restunittest.entities.TestRun;
 import one.dastec.restunittest.js.*;
 import one.dastec.restunittest.models.HttpTest;
 import one.dastec.restunittest.models.SingleRequest;
@@ -42,6 +44,8 @@ public class RestTestService {
     private final AppProperties appProperties;
     private final CryptoService cryptoService;
     private final one.dastec.restunittest.debugger.DebuggerService debuggerService;
+    private final one.dastec.restunittest.repositories.TestRunRepository testRunRepository;
+    private final one.dastec.restunittest.repositories.TestResultRepository testResultRepository;
 
 
     private final UtilsJS utilsJS = new UtilsJS();
@@ -50,21 +54,28 @@ public class RestTestService {
     private final JwtJS jwtJS = new JwtJS();
 
     @org.springframework.beans.factory.annotation.Autowired
-    public RestTestService(DataSource dataSource, JdbcTemplate jdbcTemplate, RestClient.Builder builder, GraalJsService graalJsService, AppProperties appProperties, CryptoService cryptoService, one.dastec.restunittest.debugger.DebuggerService debuggerService) {
+    public RestTestService(DataSource dataSource, JdbcTemplate jdbcTemplate, RestClient.Builder builder, GraalJsService graalJsService, AppProperties appProperties, CryptoService cryptoService, one.dastec.restunittest.debugger.DebuggerService debuggerService, one.dastec.restunittest.repositories.TestRunRepository testRunRepository, one.dastec.restunittest.repositories.TestResultRepository testResultRepository) {
         this.jdbcTemplate = jdbcTemplate;
         this.builder = builder;
         this.graalJsService = graalJsService;
         this.appProperties = appProperties;
         this.cryptoService = cryptoService;
         this.debuggerService = debuggerService;
+        this.testRunRepository = testRunRepository;
+        this.testResultRepository = testResultRepository;
     }
 
     /**
-     * @deprecated Use the constructor with DebuggerService instead.
+     * @deprecated Use the constructor with Repositories instead.
      */
     @Deprecated
+    public RestTestService(DataSource dataSource, JdbcTemplate jdbcTemplate, RestClient.Builder builder, GraalJsService graalJsService, AppProperties appProperties, CryptoService cryptoService, one.dastec.restunittest.debugger.DebuggerService debuggerService) {
+        this(dataSource, jdbcTemplate, builder, graalJsService, appProperties, cryptoService, debuggerService, null, null);
+    }
+
+    @Deprecated
     public RestTestService(DataSource dataSource, JdbcTemplate jdbcTemplate, RestClient.Builder builder, GraalJsService graalJsService, AppProperties appProperties, CryptoService cryptoService) {
-        this(dataSource, jdbcTemplate, builder, graalJsService, appProperties, cryptoService, null);
+        this(dataSource, jdbcTemplate, builder, graalJsService, appProperties, cryptoService, null, null, null);
     }
 
     public String getTestSource(String testName) {
@@ -237,6 +248,9 @@ public class RestTestService {
                 httpClientJS.getGlobal().set(k, v);
             });
 
+            List<TestResult> collectedResults = new ArrayList<>();
+            long startRun = System.currentTimeMillis();
+
         // Load markdown.js helper into GraalJS context
         try {
             ClassPathResource markdownResource = new ClassPathResource("js/markdown.js");
@@ -257,7 +271,7 @@ public class RestTestService {
                 }
                 report.append("## ").append(test.getName()).append("\n\n");
                 report.append("<!-- TEST_NAME: ").append(test.getName()).append(" -->\n");
-                executeTest(test, requestJS, httpClientJS, report, context);
+                executeTest(test, requestJS, httpClientJS, report, context, collectedResults);
                 report.append("\n---\n\n");
                 
                 // Propagate global variables back to requestJS for the next test in the same session
@@ -267,6 +281,9 @@ public class RestTestService {
                     }
                 });
             }
+
+            long duration = System.currentTimeMillis() - startRun;
+            saveHistory(testName, environmentName, collectedResults, duration);
 
             return report.toString();
             }
@@ -596,7 +613,7 @@ public class RestTestService {
         return test;
     }
 
-    private void executeTest(HttpTest test, RequestJS requestJS, HttpClientJS httpClientJS, StringBuilder report, org.graalvm.polyglot.Context context) {
+    private void executeTest(HttpTest test, RequestJS requestJS, HttpClientJS httpClientJS, StringBuilder report, org.graalvm.polyglot.Context context, List<TestResult> collectedResults) {
         try {
             // 1. Pre-actions (JS and SQL in order)
             for (HttpTest.ScriptAction action : test.getPreActions()) {
@@ -704,13 +721,15 @@ public class RestTestService {
                             .append("` = `").append(currentVal).append("`)\n\n");
                     
                     requestJS.setIteration(i);
-                    executeSingleRequest(test, allVars, requestJS, httpClientJS, report, context);
+                    TestResult result = executeSingleRequest(test, allVars, requestJS, httpClientJS, report, context);
+                    if (result != null) collectedResults.add(result);
                     report.append("\n");
                 }
                 requestJS.getVariables().remove("__iterationVarPath");
             } else {
-                requestJS.setIteration(0);
-                executeSingleRequest(test, allVars, requestJS, httpClientJS, report, context);
+                requestJS.setIteration(-1);
+                TestResult result = executeSingleRequest(test, allVars, requestJS, httpClientJS, report, context);
+                if (result != null) collectedResults.add(result);
             }
 
         } catch (Exception e) {
@@ -721,7 +740,8 @@ public class RestTestService {
         }
     }
 
-    private void executeSingleRequest(HttpTest test, Map<String, Object> allVars, RequestJS requestJS, HttpClientJS httpClientJS, StringBuilder report, org.graalvm.polyglot.Context context) {
+    private TestResult executeSingleRequest(HttpTest test, Map<String, Object> allVars, RequestJS requestJS, HttpClientJS httpClientJS, StringBuilder report, org.graalvm.polyglot.Context context) {
+        long startTime = System.currentTimeMillis();
         try {
         String iterationVarPath = (String) requestJS.getVariables().get("__iterationVarPath");
         int iterationIndex = requestJS.getIteration();
@@ -855,6 +875,8 @@ public class RestTestService {
                     maskedHeaders.put("Authorization", "************");
                 }
                 log.info("Executing request: {} {} headers: {} body: {}", method, url, maskedHeaders, body);
+                
+                long requestStartTime = System.currentTimeMillis();
                 RestClient.RequestBodySpec requestSpec = client.method(org.springframework.http.HttpMethod.valueOf(method))
                         .uri(url);
                 headers.forEach(requestSpec::header);
@@ -868,6 +890,8 @@ public class RestTestService {
                             // Do nothing, we want to handle all statuses manually in scripts
                         })
                         .toEntity(String.class);
+                long requestDuration = System.currentTimeMillis() - requestStartTime;
+                requestJS.getVariables().set("__requestDuration", requestDuration);
             }
 
             // Handle JSON body if applicable
@@ -964,10 +988,34 @@ public class RestTestService {
                 }
             });
             appendResults(httpClientJS, report);
+
+            TestResult result = new TestResult();
+            result.setTestName(test.getName() + (iterationIndex >= 0 ? " [" + (iterationIndex + 1) + "]" : ""));
+            result.setRequestMethod(method);
+            result.setRequestUrl(url);
+            result.setResponseStatus(responseJS.getStatus());
+            
+            Object durationVal = requestJS.getVariables().get("__requestDuration");
+            result.setResponseTimeMs(durationVal instanceof Long ? (Long) durationVal : 0L);
+            
+            if (httpClientJS.hasFailures()) {
+                result.setStatus("FAILURE");
+                result.setErrorMessage(httpClientJS.getFailureMessages());
+            } else {
+                result.setStatus("SUCCESS");
+            }
+            return result;
+
         } catch (Exception e) {
             report.append("❌ **Error during execution:** ").append(e.getMessage()).append("\n");
             log.error("Error during execution", e);
             appendResults(httpClientJS, report);
+            
+            TestResult result = new TestResult();
+            result.setTestName(test.getName() + (requestJS.getIteration() >= 0 ? " [" + (requestJS.getIteration() + 1) + "]" : ""));
+            result.setStatus("FAILURE");
+            result.setErrorMessage(e.getMessage());
+            return result;
         }
     }
 
@@ -1016,6 +1064,7 @@ public class RestTestService {
         String dbUrl = (String) resolveVariableValue("dbUrl", variables);
         String dbUsername = (String) resolveVariableValue("dbUsername", variables);
         String dbPassword = (String) resolveVariableValue("dbPassword", variables);
+        String dbDriver = (String) resolveVariableValue("dbDriver", variables);
 
         if (dbUrl != null && !dbUrl.isEmpty()) {
             DriverManagerDataSource dataSource = new DriverManagerDataSource();
@@ -1023,13 +1072,17 @@ public class RestTestService {
             if (dbUsername != null) dataSource.setUsername(dbUsername);
             if (dbPassword != null) dataSource.setPassword(dbPassword);
             
-            // Try to detect driver from URL if not specified
-            if (dbUrl.startsWith("jdbc:postgresql:")) {
-                dataSource.setDriverClassName("org.postgresql.Driver");
-            } else if (dbUrl.startsWith("jdbc:mysql:")) {
-                dataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
-            } else if (dbUrl.startsWith("jdbc:h2:")) {
-                dataSource.setDriverClassName("org.h2.Driver");
+            if (dbDriver != null && !dbDriver.isEmpty()) {
+                dataSource.setDriverClassName(dbDriver);
+            } else {
+                // Try to detect driver from URL if not specified
+                if (dbUrl.startsWith("jdbc:postgresql:")) {
+                    dataSource.setDriverClassName("org.postgresql.Driver");
+                } else if (dbUrl.startsWith("jdbc:mysql:")) {
+                    dataSource.setDriverClassName("com.mysql.cj.jdbc.Driver");
+                } else if (dbUrl.startsWith("jdbc:h2:")) {
+                    dataSource.setDriverClassName("org.h2.Driver");
+                }
             }
             
             return new JdbcTemplate(dataSource);
@@ -1494,5 +1547,32 @@ public class RestTestService {
     private String generateRandomEmail(Random random) {
         String chars = "abcdefghijklmnopqrstuvwxyz";
         return generateRandomString(chars, 8, random) + "@" + generateRandomString(chars, 5, random) + ".com";
+    }
+
+    private void saveHistory(String testName, String environment, List<TestResult> results, long duration) {
+        if (testRunRepository == null || testResultRepository == null) return;
+
+        TestRun testRun = new TestRun();
+        testRun.setTestFileName(testName);
+        testRun.setEnvironment(environment);
+        testRun.setExecutionTime(LocalDateTime.now());
+        testRun.setDurationMs(duration);
+        testRun.setTotalTests(results.size());
+        
+        int passed = 0;
+        int failed = 0;
+        for (TestResult res : results) {
+            if ("SUCCESS".equals(res.getStatus())) {
+                passed++;
+            } else {
+                failed++;
+            }
+            res.setTestRun(testRun);
+        }
+        testRun.setPassedTests(passed);
+        testRun.setFailedTests(failed);
+        testRun.setResults(results);
+
+        testRunRepository.save(testRun);
     }
 }

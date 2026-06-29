@@ -17,6 +17,7 @@ A Spring Boot-based framework for executing HTTP-based unit tests with integrate
 - **Variable Scoping**: JavaScript blocks are automatically wrapped in IIFEs to ensure local scoping and prevent variable collisions.
 - **Variable Resolution**: Comprehensive support for `{{variable}}` resolution in URLs, headers, and bodies, including global and environment-specific variables.
 - **Interactive JavaScript Debugger**: A step-through debugger for GraalJS script blocks in the Web UI, featuring breakpoints, Resume, Step Over, Step Into, and Step Out. It provides real-time execution point highlighting and gutter markers.
+- **Test History & Dashboard**: Persists test execution results in a local H2 database. Features a visual dashboard showing success rates by file, execution time trends, common failure patterns, and a list of the slowest tests. Access it via the "📊 Dashboard" button in the header.
 - **In-place Variables**: Support for file-scoped variables using the `@name = value` syntax.
 - **Dynamic Variables**: Built-in support for dynamic values like `{{$uuid}}`, `{{$timestamp}}`, `{{$randomInt}}`, etc.
 - **Markdown Reports**: Automatically generates detailed reports in Markdown format with pretty-printed JSON and left-aligned table headers.

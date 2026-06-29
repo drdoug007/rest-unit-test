@@ -74,6 +74,18 @@ public class HttpClientJS {
         return markdownEntries;
     }
 
+    public boolean hasFailures() {
+        return testResults.stream().anyMatch(r -> r.startsWith("❌"));
+    }
+
+    public String getFailureMessages() {
+        return testResults.stream()
+                .filter(r -> r.startsWith("❌"))
+                .map(r -> r.substring(2))
+                .reduce((a, b) -> a + "; " + b)
+                .orElse(null);
+    }
+
     public static class Global {
         private final Map<String, Object> map = new HashMap<>();
         public final Headers headers = new Headers();

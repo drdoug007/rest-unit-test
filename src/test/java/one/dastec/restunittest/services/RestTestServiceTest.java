@@ -1,11 +1,15 @@
 package one.dastec.restunittest.services;
 
 import one.dastec.restunittest.config.AppProperties;
+import one.dastec.restunittest.entities.TestRun;
 import one.dastec.restunittest.js.HttpClientJS;
 import one.dastec.restunittest.js.RequestJS;
 import one.dastec.restunittest.models.HttpTest;
+import one.dastec.restunittest.repositories.TestResultRepository;
+import one.dastec.restunittest.repositories.TestRunRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -40,6 +44,8 @@ public class RestTestServiceTest {
 
     private AppProperties appProperties;
     private CryptoService cryptoService;
+    private TestRunRepository testRunRepository;
+    private TestResultRepository testResultRepository;
 
     @BeforeEach
     public void setUp() {
@@ -53,6 +59,8 @@ public class RestTestServiceTest {
         appProperties = new AppProperties();
         appProperties.getEnvironment().setName("TestEnv");
         cryptoService = new CryptoService();
+        testRunRepository = Mockito.mock(TestRunRepository.class);
+        testResultRepository = Mockito.mock(TestResultRepository.class);
 
         when(builder.clone()).thenReturn(builder);
         when(builder.build()).thenReturn(restClient);
@@ -62,7 +70,26 @@ public class RestTestServiceTest {
         when(requestBodyUriSpec.retrieve()).thenReturn(responseSpec);
         when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
         
-        restTestService = new RestTestService(dataSource, jdbcTemplate, builder, graalJsService, appProperties, cryptoService);
+        restTestService = new RestTestService(dataSource, jdbcTemplate, builder, graalJsService, appProperties, cryptoService, null, testRunRepository, testResultRepository);
+    }
+
+    @Test
+    public void testHistoryPersistence() {
+        ResponseEntity<String> responseEntity = new ResponseEntity<>("OK", HttpStatus.OK);
+        when(responseSpec.toEntity(String.class)).thenReturn(responseEntity);
+
+        String content = "### Test 1\nGET http://example.com\n\n> {%\n client.test('pass', function() { client.assert(true); });\n%}";
+        restTestService.runTestWithContent("History Test", content);
+
+        ArgumentCaptor<TestRun> captor = ArgumentCaptor.forClass(TestRun.class);
+        Mockito.verify(testRunRepository).save(captor.capture());
+        
+        TestRun savedRun = captor.getValue();
+        assertTrue(savedRun.getTestFileName().equals("History Test"));
+        assertTrue(savedRun.getPassedTests() == 1);
+        assertTrue(savedRun.getTotalTests() == 1);
+        assertTrue(savedRun.getResults().size() == 1);
+        assertTrue(savedRun.getResults().get(0).getStatus().equals("SUCCESS"));
     }
 
     @Test
@@ -230,5 +257,28 @@ public class RestTestServiceTest {
 
         assertTrue(report.contains("Test Report: Test with Encrypted"));
         Mockito.verify(requestBodyUriSpec).uri(contains("pass=my-secret-password"));
+    }
+
+    @Test
+    void testCustomJdbcDriver() {
+        ResponseEntity<String> responseEntity = new ResponseEntity<>("OK", HttpStatus.OK);
+        when(responseSpec.toEntity(String.class)).thenReturn(responseEntity);
+        
+        String content = "### SQL Test\n" +
+                "GET http://localhost\n" +
+                "> {%SQL\n" +
+                "SELECT 1\n" +
+                "%}";
+        
+        Map<String, Object> globals = new HashMap<>();
+        globals.put("dbUrl", "jdbc:something:else");
+        globals.put("dbDriver", "com.example.NonExistentDriver");
+        
+        try {
+            restTestService.runTestWithContent("CustomDriverTest", content, globals);
+        } catch (Exception e) {
+            String message = e.toString();
+            assertTrue(message.contains("com.example.NonExistentDriver"), "Error should mention the missing driver: " + message);
+        }
     }
 }
