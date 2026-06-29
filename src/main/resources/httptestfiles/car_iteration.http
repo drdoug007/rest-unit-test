@@ -18,7 +18,7 @@ Authorization: Basic {{username}} {{password}}
   "make": "{{$.cars..make}}",
   "model": "{{$.cars..model}}",
   "color": "{{$.cars..color}}",
-  "price": "{{$.cars..price}}"
+  "price": {{$.cars..price}}
 }
 
 > {%
@@ -37,17 +37,13 @@ Authorization: Basic {{username}} {{password}}
 
     // We can also use request.templateValue to verify what was sent
     client.test("Template values match current car", function() {
-        client.assert(request.templateValue(0) === currentCar.make, "Make mismatch");
-        client.assert(request.templateValue(1) === currentCar.model, "Model mismatch");
+        client.assert(request.templateValue(1) === currentCar.make, "Make mismatch");
+        client.assert(request.templateValue(2) === currentCar.model, "Model mismatch");
     });
 %}
 
 ### Verify results with SQL
 // This block runs once after all iterations of the previous block are finished.
-GET {{baseUrl}}/api/cardealer/1
-Authorization: Basic {{username}} {{password}}
-Accept: application/json
-
 > {%
     markdowner.heading(3, "Final Car List for Dealer 1");
     const result = client.sqlQuery("SELECT id, make, model, color, price FROM car WHERE dealer_id = 1 ORDER BY id DESC LIMIT 3");

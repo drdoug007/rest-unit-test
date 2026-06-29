@@ -266,8 +266,10 @@ public class RestTestService {
 
             for (HttpTest test : tests) {
                 if (test.getMethod() == null || test.getUrl() == null) {
-                    log.warn("Skipping test block with no request: {}", test.getName());
-                    continue;
+                    if (test.getPreActions().isEmpty() && test.getPostActions().isEmpty()) {
+                        log.warn("Skipping test block with no request or actions: {}", test.getName());
+                        continue;
+                    }
                 }
                 report.append("## ").append(test.getName()).append("\n\n");
                 report.append("<!-- TEST_NAME: ").append(test.getName()).append(" -->\n");
@@ -743,221 +745,224 @@ public class RestTestService {
     private TestResult executeSingleRequest(HttpTest test, Map<String, Object> allVars, RequestJS requestJS, HttpClientJS httpClientJS, StringBuilder report, org.graalvm.polyglot.Context context) {
         long startTime = System.currentTimeMillis();
         try {
-        String iterationVarPath = (String) requestJS.getVariables().get("__iterationVarPath");
-        int iterationIndex = requestJS.getIteration();
+            String iterationVarPath = (String) requestJS.getVariables().get("__iterationVarPath");
+            int iterationIndex = requestJS.getIteration();
 
-        // Collect template values for request.templateValue(index)
-        List<Object> templateValues = new ArrayList<>();
-        Pattern varPattern = Pattern.compile("\\{\\{(.+?)}}");
-        
-        if (test.getUrl() != null) {
-            Matcher m = varPattern.matcher(test.getUrl());
-            while (m.find()) {
-                String varPath = m.group(1).trim();
-                templateValues.add(resolveVariableValueForIteration(varPath, allVars, iterationVarPath, iterationIndex));
-            }
-        }
-        if (test.getBody() != null) {
-            Matcher m = varPattern.matcher(test.getBody());
-            while (m.find()) {
-                String varPath = m.group(1).trim();
-                templateValues.add(resolveVariableValueForIteration(varPath, allVars, iterationVarPath, iterationIndex));
-            }
-        }
-        // Headers are a map, and their order might not be strictly preserved or defined for templateValue
-        // but the issue description shows it for body. Usually, it's URL then body.
-        requestJS.setTemplateValues(templateValues);
-
-        String url = resolveVariables(test.getUrl(), allVars, iterationVarPath, iterationIndex);
-            if (url == null || url.trim().isEmpty()) {
-                log.error("Request URL is missing for test: {}. Method: {}, Headers: {}, Body: {}", test.getName(), test.getMethod(), test.getHeaders(), test.getBody());
-                throw new RuntimeException("Request URL is missing. Check if the .http file has a valid request line (e.g., GET http://...)");
-            }
+            ResponseJS responseJS = null;
             String method = test.getMethod();
-            if (method == null || method.trim().isEmpty()) {
-                throw new RuntimeException("Request method is missing. Check if the .http file has a valid request line.");
-            }
-            Map<String, String> headers = new HashMap<>();
-            // Apply global headers first
-            httpClientJS.global.headers.all().forEach((k, v) -> {
-                headers.put(k, resolveVariables(v, allVars, iterationVarPath, iterationIndex));
-            });
+            String url = null;
 
-            test.getHeaders().forEach((k, v) -> {
-                String resolvedValue = resolveVariables(v, allVars, iterationVarPath, iterationIndex);
-                if (k.equalsIgnoreCase("Authorization") && resolvedValue != null) {
-                    if (resolvedValue.startsWith("Basic ") && !resolvedValue.contains(":")) {
-                        String credentials = resolvedValue.substring(6).trim();
-                        // If it contains space and not already base64 (guess by space)
-                        if (credentials.contains(" ")) {
-                            String[] parts = credentials.split("\\s+", 2);
-                            String username = parts[0];
-                            String password = parts.length > 1 ? parts[1] : "";
-                            String encoded = Base64.getEncoder().encodeToString((username + ":" + password).getBytes(StandardCharsets.UTF_8));
-                            resolvedValue = "Basic " + encoded;
-                        }
+            if (method != null) {
+                // Collect template values for request.templateValue(index)
+                List<Object> templateValues = new ArrayList<>();
+                Pattern varPattern = Pattern.compile("\\{\\{(.+?)}}");
+
+                if (test.getUrl() != null) {
+                    Matcher m = varPattern.matcher(test.getUrl());
+                    while (m.find()) {
+                        String varPath = m.group(1).trim();
+                        templateValues.add(resolveVariableValueForIteration(varPath, allVars, iterationVarPath, iterationIndex));
                     }
                 }
-                headers.put(k, resolvedValue);
-            });
-            String body = resolveVariables(test.getBody(), allVars, iterationVarPath, iterationIndex);
-
-            if (!report.toString().endsWith("\n\n")) {
-                if (report.toString().endsWith("\n")) {
-                    report.append("\n");
-                } else {
-                    report.append("\n\n");
-                }
-            }
-            report.append("**Request:** `").append(method).append(" ").append(url).append("`\n\n");
-
-            if (!headers.isEmpty()) {
-                report.append("**Request Headers:**\n\n");
-                headers.forEach((k, v) -> {
-                    String valueToDisplay = v;
-                    if (k.equalsIgnoreCase("Authorization")) {
-                        valueToDisplay = "************";
+                if (test.getBody() != null) {
+                    Matcher m = varPattern.matcher(test.getBody());
+                    while (m.find()) {
+                        String varPath = m.group(1).trim();
+                        templateValues.add(resolveVariableValueForIteration(varPath, allVars, iterationVarPath, iterationIndex));
                     }
-                    report.append("- ").append(k).append(": ").append(valueToDisplay).append("\n");
+                }
+                // Headers are a map, and their order might not be strictly preserved or defined for templateValue
+                // but the issue description shows it for body. Usually, it's URL then body.
+                requestJS.setTemplateValues(templateValues);
+
+                url = resolveVariables(test.getUrl(), allVars, iterationVarPath, iterationIndex);
+                if (url == null || url.trim().isEmpty()) {
+                    log.error("Request URL is missing for test: {}. Method: {}, Headers: {}, Body: {}", test.getName(), test.getMethod(), test.getHeaders(), test.getBody());
+                    throw new RuntimeException("Request URL is missing. Check if the .http file has a valid request line (e.g., GET http://...)");
+                }
+                
+                Map<String, String> headers = new HashMap<>();
+                // Apply global headers first
+                httpClientJS.global.headers.all().forEach((k, v) -> {
+                    headers.put(k, resolveVariables(v, allVars, iterationVarPath, iterationIndex));
                 });
-                report.append("\n");
-            }
 
-            if (body != null && !body.isEmpty()) {
-                report.append("**Request Body:**\n\n```json\n").append(body).append("\n```\n\n");
-            }
-
-            ResponseEntity<String> responseEntity;
-            if (test.getMockResponse() != null) {
-                // Mock execution
-                HttpTest.MockResponse mock = test.getMockResponse();
-                int statusCode = 200;
-                String statusText = "OK";
-                if (mock.getStatus() != null) {
-                    String[] statusParts = mock.getStatus().split("\\s+", 3);
-                    if (statusParts.length >= 2) {
-                        try {
-                            statusCode = Integer.parseInt(statusParts[1]);
-                            if (statusParts.length >= 3) {
-                                statusText = statusParts[2];
-                            } else {
-                                statusText = org.springframework.http.HttpStatus.valueOf(statusCode).getReasonPhrase();
+                test.getHeaders().forEach((k, v) -> {
+                    String resolvedValue = resolveVariables(v, allVars, iterationVarPath, iterationIndex);
+                    if (k.equalsIgnoreCase("Authorization") && resolvedValue != null) {
+                        if (resolvedValue.startsWith("Basic ") && !resolvedValue.contains(":")) {
+                            String credentials = resolvedValue.substring(6).trim();
+                            // If it contains space and not already base64 (guess by space)
+                            if (credentials.contains(" ")) {
+                                String[] parts = credentials.split("\\s+", 2);
+                                String username = parts[0];
+                                String password = parts.length > 1 ? parts[1] : "";
+                                String encoded = Base64.getEncoder().encodeToString((username + ":" + password).getBytes(StandardCharsets.UTF_8));
+                                resolvedValue = "Basic " + encoded;
                             }
-                        } catch (Exception e) {
-                            log.warn("Could not parse mock status: {}", mock.getStatus());
                         }
                     }
-                }
-                
-                org.springframework.http.HttpHeaders responseHeaders = new org.springframework.http.HttpHeaders();
-                mock.getHeaders().forEach((k, v) -> {
-                    responseHeaders.set(k, resolveVariables(v, allVars, iterationVarPath, iterationIndex));
+                    headers.put(k, resolvedValue);
                 });
-                String mockResponseBody = resolveVariables(mock.getBody(), allVars, iterationVarPath, iterationIndex);
-                responseEntity = new ResponseEntity<>(mockResponseBody, responseHeaders, org.springframework.http.HttpStatusCode.valueOf(statusCode));
-                report.append("> **Mock Response Intercepted**\n\n");
-            } else {
-                // Real execution
-                RestClient.Builder perRequestBuilder = builder.clone();
-                if (test.getTimeout() != null || test.getConnectionTimeout() != null) {
-                    SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-                    if (test.getTimeout() != null) {
-                        factory.setReadTimeout(test.getTimeout());
+                String body = resolveVariables(test.getBody(), allVars, iterationVarPath, iterationIndex);
+
+                if (!report.toString().endsWith("\n\n")) {
+                    if (report.toString().endsWith("\n")) {
+                        report.append("\n");
+                    } else {
+                        report.append("\n\n");
                     }
-                    if (test.getConnectionTimeout() != null) {
-                        factory.setConnectTimeout(test.getConnectionTimeout());
+                }
+                report.append("**Request:** `").append(method).append(" ").append(url).append("`\n\n");
+
+                if (!headers.isEmpty()) {
+                    report.append("**Request Headers:**\n\n");
+                    headers.forEach((k, v) -> {
+                        String valueToDisplay = v;
+                        if (k.equalsIgnoreCase("Authorization")) {
+                            valueToDisplay = "************";
+                        }
+                        report.append("- ").append(k).append(": ").append(valueToDisplay).append("\n");
+                    });
+                    report.append("\n");
+                }
+
+                if (body != null && !body.isEmpty()) {
+                    report.append("**Request Body:**\n\n```json\n").append(body).append("\n```\n\n");
+                }
+
+                ResponseEntity<String> responseEntity;
+                if (test.getMockResponse() != null) {
+                    // Mock execution
+                    HttpTest.MockResponse mock = test.getMockResponse();
+                    int statusCode = 200;
+                    String statusText = "OK";
+                    if (mock.getStatus() != null) {
+                        String[] statusParts = mock.getStatus().split("\\s+", 3);
+                        if (statusParts.length >= 2) {
+                            try {
+                                statusCode = Integer.parseInt(statusParts[1]);
+                                if (statusParts.length >= 3) {
+                                    statusText = statusParts[2];
+                                } else {
+                                    statusText = org.springframework.http.HttpStatus.valueOf(statusCode).getReasonPhrase();
+                                }
+                            } catch (Exception e) {
+                                log.warn("Could not parse mock status: {}", mock.getStatus());
+                            }
+                        }
                     }
-                    perRequestBuilder.requestFactory(factory);
-                }
-                RestClient client = perRequestBuilder.build();
-                Map<String, String> maskedHeaders = new HashMap<>(headers);
-                if (maskedHeaders.containsKey("Authorization")) {
-                    maskedHeaders.put("Authorization", "************");
-                }
-                log.info("Executing request: {} {} headers: {} body: {}", method, url, maskedHeaders, body);
-                
-                long requestStartTime = System.currentTimeMillis();
-                RestClient.RequestBodySpec requestSpec = client.method(org.springframework.http.HttpMethod.valueOf(method))
-                        .uri(url);
-                headers.forEach(requestSpec::header);
-                
-                RestClient.ResponseSpec responseSpec = (body != null && !body.isEmpty())
-                        ? requestSpec.body(body).retrieve()
-                        : requestSpec.retrieve();
 
-                responseEntity = responseSpec
-                        .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(), (req, resp) -> {
-                            // Do nothing, we want to handle all statuses manually in scripts
-                        })
-                        .toEntity(String.class);
-                long requestDuration = System.currentTimeMillis() - requestStartTime;
-                requestJS.getVariables().set("__requestDuration", requestDuration);
+                    org.springframework.http.HttpHeaders responseHeaders = new org.springframework.http.HttpHeaders();
+                    mock.getHeaders().forEach((k, v) -> {
+                        responseHeaders.set(k, resolveVariables(v, allVars, iterationVarPath, iterationIndex));
+                    });
+                    String mockResponseBody = resolveVariables(mock.getBody(), allVars, iterationVarPath, iterationIndex);
+                    responseEntity = new ResponseEntity<>(mockResponseBody, responseHeaders, org.springframework.http.HttpStatusCode.valueOf(statusCode));
+                    report.append("> **Mock Response Intercepted**\n\n");
+                } else {
+                    // Real execution
+                    RestClient.Builder perRequestBuilder = builder.clone();
+                    if (test.getTimeout() != null || test.getConnectionTimeout() != null) {
+                        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+                        if (test.getTimeout() != null) {
+                            factory.setReadTimeout(test.getTimeout());
+                        }
+                        if (test.getConnectionTimeout() != null) {
+                            factory.setConnectTimeout(test.getConnectionTimeout());
+                        }
+                        perRequestBuilder.requestFactory(factory);
+                    }
+                    RestClient client = perRequestBuilder.build();
+                    Map<String, String> maskedHeaders = new HashMap<>(headers);
+                    if (maskedHeaders.containsKey("Authorization")) {
+                        maskedHeaders.put("Authorization", "************");
+                    }
+                    log.info("Executing request: {} {} headers: {} body: {}", method, url, maskedHeaders, body);
+
+                    long requestStartTime = System.currentTimeMillis();
+                    RestClient.RequestBodySpec requestSpec = client.method(org.springframework.http.HttpMethod.valueOf(method))
+                            .uri(url);
+                    headers.forEach(requestSpec::header);
+
+                    RestClient.ResponseSpec responseSpec = (body != null && !body.isEmpty())
+                            ? requestSpec.body(body).retrieve()
+                            : requestSpec.retrieve();
+
+                    responseEntity = responseSpec
+                            .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(), (req, resp) -> {
+                                // Do nothing, we want to handle all statuses manually in scripts
+                            })
+                            .toEntity(String.class);
+                    long requestDuration = System.currentTimeMillis() - requestStartTime;
+                    requestJS.getVariables().set("__requestDuration", requestDuration);
+                }
+
+                // Handle JSON body if applicable
+                Object finalBody = responseEntity.getBody();
+                String contentType = responseEntity.getHeaders().getContentType() != null ? responseEntity.getHeaders().getContentType().toString() : "";
+                if (contentType.contains("json")) {
+                    try {
+                        finalBody = context.eval("js", "JSON.parse").execute(responseEntity.getBody());
+                    } catch (Exception e) {
+                        log.warn("Could not parse response body as JSON: {}", e.getMessage());
+                    }
+                } else if (contentType.contains("xml") || contentType.contains("html")) {
+                    try {
+                        DomJS.NodeWrapper doc = new DomJS.DOMParser().parseFromString(responseEntity.getBody(), contentType);
+                        finalBody = context.eval("js", "(function(javaNode) { " +
+                                "    var wrap = function(jn) { " +
+                                "      if (!jn) return null; " +
+                                "      var node = { " +
+                                "        get nodeName() { return jn.getNodeName(); }, " +
+                                "        get nodeValue() { return jn.getNodeValue(); }, " +
+                                "        get nodeType() { return jn.getNodeType(); }, " +
+                                "        get parentNode() { return wrap(jn.getParentNode()); }, " +
+                                "        get childNodes() { return jn.getChildNodes().toArray().map(wrap); }, " +
+                                "        get firstChild() { var c = jn.getChildNodes(); return c.size() > 0 ? wrap(c.get(0)) : null; }, " +
+                                "        get lastChild() { var c = jn.getChildNodes(); return c.size() > 0 ? wrap(c.get(c.size()-1)) : null; }, " +
+                                "        get nextSibling() { return wrap(jn.getNextSibling()); }, " +
+                                "        get previousSibling() { return wrap(jn.getPreviousSibling()); }, " +
+                                "        get textContent() { return jn.getTextContent(); }, " +
+                                "        get xml() { return jn.getXml(); }, " +
+                                "        get tagName() { return jn.getTagName(); }, " +
+                                "        get id() { return jn.getId(); }, " +
+                                "        get className() { return jn.getClassName(); }, " +
+                                "        get isConnected() { return jn.getParentNode() !== null || jn.getNodeType() === 9; }, " +
+                                "        getElementsByTagName: function(tag) { return jn.getElementsByTag(tag).toArray().map(wrap); }, " +
+                                "        getElementsByClassName: function(cls) { return jn.getElementsByClass(cls).toArray().map(wrap); }, " +
+                                "        getElementsByName: function(name) { return jn.getElementsByAttribute('name', name).toArray().map(wrap); }, " +
+                                "        getElementById: function(id) { return wrap(jn.getElementById(id)); }, " +
+                                "        createElement: function(tag) { return wrap(jn.createElement(tag)); }, " +
+                                "        hasChildNodes: function() { return jn.getChildNodes().size() > 0; }, " +
+                                "        cloneNode: function(deep) { return wrap(jn.node.shallowClone()); }, " + // jsoup clone deep by default, wrap needs work for deep
+                                "        contains: function(other) { return false; }, " + // Simplified
+                                "        isSameNode: function(other) { return other && other._jn && jn.node === other._jn.node; }, " +
+                                "        isEqualNode: function(other) { return other && other._jn && jn.node.equals(other._jn.node); }, " +
+                                "        toJSON: function() { return this.xml; }, " +
+                                "        toString: function() { return this.xml; }, " +
+                                "        valueOf: function() { return this.xml; }, " +
+                                "        _jn: jn " +
+                                "      }; " +
+                                "      return node; " +
+                                "    }; " +
+                                "    return wrap(javaNode); " +
+                                "})").execute(doc);
+                    } catch (Exception e) {
+                        log.warn("Could not parse response body as DOM: {}", e.getMessage());
+                    }
+                }
+
+                responseJS = new ResponseJS(
+                        responseEntity.getStatusCode().value(),
+                        responseEntity.getHeaders().toSingleValueMap(),
+                        finalBody,
+                        responseEntity.getBody()
+                );
+
+                // 4. Response Header in report
+                report.append("**Response Status:** ").append(responseJS.getStatus()).append("\n\n");
             }
-
-            // Handle JSON body if applicable
-            Object finalBody = responseEntity.getBody();
-            String contentType = responseEntity.getHeaders().getContentType() != null ? responseEntity.getHeaders().getContentType().toString() : "";
-            if (contentType.contains("json")) {
-                try {
-                    finalBody = context.eval("js", "JSON.parse").execute(responseEntity.getBody());
-                } catch (Exception e) {
-                    log.warn("Could not parse response body as JSON: {}", e.getMessage());
-                }
-            } else if (contentType.contains("xml") || contentType.contains("html")) {
-                try {
-                    DomJS.NodeWrapper doc = new DomJS.DOMParser().parseFromString(responseEntity.getBody(), contentType);
-                    finalBody = context.eval("js", "(function(javaNode) { " +
-                            "    var wrap = function(jn) { " +
-                            "      if (!jn) return null; " +
-                            "      var node = { " +
-                            "        get nodeName() { return jn.getNodeName(); }, " +
-                            "        get nodeValue() { return jn.getNodeValue(); }, " +
-                            "        get nodeType() { return jn.getNodeType(); }, " +
-                            "        get parentNode() { return wrap(jn.getParentNode()); }, " +
-                            "        get childNodes() { return jn.getChildNodes().toArray().map(wrap); }, " +
-                            "        get firstChild() { var c = jn.getChildNodes(); return c.size() > 0 ? wrap(c.get(0)) : null; }, " +
-                            "        get lastChild() { var c = jn.getChildNodes(); return c.size() > 0 ? wrap(c.get(c.size()-1)) : null; }, " +
-                            "        get nextSibling() { return wrap(jn.getNextSibling()); }, " +
-                            "        get previousSibling() { return wrap(jn.getPreviousSibling()); }, " +
-                            "        get textContent() { return jn.getTextContent(); }, " +
-                            "        get xml() { return jn.getXml(); }, " +
-                            "        get tagName() { return jn.getTagName(); }, " +
-                            "        get id() { return jn.getId(); }, " +
-                            "        get className() { return jn.getClassName(); }, " +
-                            "        get isConnected() { return jn.getParentNode() !== null || jn.getNodeType() === 9; }, " +
-                            "        getElementsByTagName: function(tag) { return jn.getElementsByTag(tag).toArray().map(wrap); }, " +
-                            "        getElementsByClassName: function(cls) { return jn.getElementsByClass(cls).toArray().map(wrap); }, " +
-                            "        getElementsByName: function(name) { return jn.getElementsByAttribute('name', name).toArray().map(wrap); }, " +
-                            "        getElementById: function(id) { return wrap(jn.getElementById(id)); }, " +
-                            "        createElement: function(tag) { return wrap(jn.createElement(tag)); }, " +
-                            "        hasChildNodes: function() { return jn.getChildNodes().size() > 0; }, " +
-                            "        cloneNode: function(deep) { return wrap(jn.node.shallowClone()); }, " + // jsoup clone deep by default, wrap needs work for deep
-                            "        contains: function(other) { return false; }, " + // Simplified
-                            "        isSameNode: function(other) { return other && other._jn && jn.node === other._jn.node; }, " +
-                            "        isEqualNode: function(other) { return other && other._jn && jn.node.equals(other._jn.node); }, " +
-                            "        toJSON: function() { return this.xml; }, " +
-                            "        toString: function() { return this.xml; }, " +
-                            "        valueOf: function() { return this.xml; }, " +
-                            "        _jn: jn " +
-                            "      }; " +
-                            "      return node; " +
-                            "    }; " +
-                            "    return wrap(javaNode); " +
-                            "})").execute(doc);
-                } catch (Exception e) {
-                    log.warn("Could not parse response body as DOM: {}", e.getMessage());
-                }
-            }
-
-            ResponseJS responseJS = new ResponseJS(
-                    responseEntity.getStatusCode().value(),
-                    responseEntity.getHeaders().toSingleValueMap(),
-                    finalBody,
-                    responseEntity.getBody()
-            );
-
-            // 4. Response Header in report
-            report.append("**Response Status:** ").append(responseJS.getStatus()).append("\n\n");
 
             // 5. Post-script
             for (HttpTest.ScriptAction action : test.getPostActions()) {
@@ -993,7 +998,9 @@ public class RestTestService {
             result.setTestName(test.getName() + (iterationIndex >= 0 ? " [" + (iterationIndex + 1) + "]" : ""));
             result.setRequestMethod(method);
             result.setRequestUrl(url);
-            result.setResponseStatus(responseJS.getStatus());
+            if (responseJS != null) {
+                result.setResponseStatus(responseJS.getStatus());
+            }
             
             Object durationVal = requestJS.getVariables().get("__requestDuration");
             result.setResponseTimeMs(durationVal instanceof Long ? (Long) durationVal : 0L);

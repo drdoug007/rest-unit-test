@@ -124,7 +124,7 @@ GET {{baseUrl}}/api/resource/{{ids}}
 
 > {%
     client.log("Iteration: " + request.iteration()); // 0, 1, 2
-    client.log("Value: " + request.templateValue(0)); // 101, 102, 103
+    client.log("Value: " + request.templateValue(1)); // 101, 102, 103
 %}
 ```
 
@@ -258,7 +258,7 @@ GET {{baseUrl}}/api/items/{{ids}}
 
 > {%
     client.log("Iteration: " + request.iteration());
-    client.log("Value: " + request.templateValue(0));
+    client.log("Value: " + request.templateValue(1));
 %}
 ```
 See `src/main/resources/httptestfiles/car_iteration.http` for a comprehensive example of adding multiple records with server-generated IDs.
